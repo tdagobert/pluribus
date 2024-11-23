@@ -279,6 +279,7 @@ def normalize_image(img, sat=None):
     """
     …
     """
+    img = img[:, :, 0:3]
     # convertir en float
     if sat is None:
         mini = np.min(img)
