@@ -344,7 +344,10 @@ def load_parameters():
     b_parser.add_argument(
         "--zip", type=str, required=True, help="Zip contenant 4 images."
     )
-
+    b_parser.add_argument(
+        "--epsilon", type=float, required=False, default=1.0,
+        help="NFA threshold."
+    )
     b_parser.add_argument(
         "--b", type=int, required=True,
         help="Side of the square neighborhood of x."
