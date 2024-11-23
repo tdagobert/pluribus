@@ -418,7 +418,7 @@ def main():
     epsilon = 1.0
     phi, angle0, angle1 = compute_change(imu0, imv0, imu1, imv1, cfg)
     nfa1 = imu0.shape[0] * imu0.shape[1] * phi
-    mappe1 = np.array(nfa1 < epsilon, dtype=np.uint8)
+    mappe1 = 255 * np.array(nfa1 < epsilon, dtype=np.uint8)
 
     jet = convert_to_rainbow_image(phi)
     for img, name in zip(
@@ -440,7 +440,7 @@ def main():
 
     phi, angle0, angle1 = compute_change(imv1, imv0, imu1, imu0, cfg)
     nfa2 = imu0.shape[0] * imu0.shape[1] * phi
-    mappe2 = np.array(nfa2 < epsilon, dtype=np.uint8)
+    mappe2 = 255 * np.array(nfa2 < epsilon, dtype=np.uint8)
 
     jet = convert_to_rainbow_image(phi)
     for img, name in zip(
@@ -454,10 +454,10 @@ def main():
 #    iio.write(join(cfg.dirout, "jet2.png"), jet)
 #    iio.write(join(cfg.dirout, "map2.png"), mappe2)
 
-    mappe = mappe1 * mappe2
+    mappe = mappe1 * mappe2 / 255
     iio.write(join(cfg.dirout, "map.png"), mappe)
 
-    mappe3 = np.array((nfa1 + nfa2)/2.0 < epsilon, dtype=np.uint8)
+    mappe3 = 255 * np.array((nfa1 + nfa2)/2.0 < epsilon, dtype=np.uint8)
     iio.write(join(cfg.dirout, "map_avgnfa.png"), mappe3)
     return 0
 
