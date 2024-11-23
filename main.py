@@ -454,7 +454,9 @@ def main():
 #    iio.write(join(cfg.dirout, "jet2.png"), jet)
 #    iio.write(join(cfg.dirout, "map2.png"), mappe2)
 
-    mappe = (mappe1 * mappe2)
+
+    mappe = 255 * np.array(mappe1 / 255 * mappe2 / 255, dtype=np.uint8)
+    print(np.max(mappe), np.max(mappe1), np.max(mappe2), mappe.dtype)
     iio.write(join(cfg.dirout, "map.png"), mappe)
 
     mappe3 = 255 * np.array((nfa1 + nfa2)/2.0 < epsilon, dtype=np.uint8)
