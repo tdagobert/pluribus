@@ -275,6 +275,27 @@ def convert_to_rainbow_image(img, apply_log=True):
     return img
 
 
+def normalize_image(img, sat=None):
+    """
+    …
+    """
+    # convertir en float
+    if sat is None:
+        mini = np.min(img)
+        maxi = np.max(img)
+    else:
+        val = np.sort(img.flatten())
+        mini = val[int(sat*val.size)]
+        maxi = val[int((1-sat)*val.size)]
+        # remplacer les valeurs < mini ou > maxi par mini et maxi ... np.clip
+    img = 255 * (img - mini) / (maxi - mini)
+    img[img>255.0] = 255.0
+    img[img<0.0] = 0.0
+
+    img = np.array(img, dtype=np.uint8)
+    return img
+
+
 def perturbate_image(img):
     """
     Add small noise to image to avoid tie values during the Kolmogorov-Smirnov
@@ -376,6 +397,11 @@ def main():
             imu1 = iio.read(join(cfg.dirout, pfxrep, fichiers[0]))
             imv1 = iio.read(join(cfg.dirout, pfxrep, fichiers[1]))
 
+    for img, name in zip([imu0, imv0, imu1, imv1],
+                         ["imu0.png", "imv0.png", "imu1.png", "imv1.png"]):
+        img_normalized = normalize_image(img, sat=0.05)
+        iio.write(join(cfg.dirout, name), img_normalized)
+        
     imu0 = convert_to_gray_image(cfg, imu0)
     imv0 = convert_to_gray_image(cfg, imv0)
     imu1 = convert_to_gray_image(cfg, imu1)
