@@ -307,6 +307,143 @@ def perturbate_image(img):
     return img
 
 
+def load_images(cfg):
+    """
+    ...
+    """
+    with zipfile.ZipFile(cfg.zip, 'r') as monzip:
+        fichiers = sorted([basename(f) for f in monzip.namelist()])
+        pfxrep = [dirname(f) for f in monzip.namelist()][0]
+        print(pfxrep)
+        monzip.extractall(path=cfg.dirout)
+        print(
+            "contenu du répertoire:",
+            sorted(os.listdir(join(cfg.dirout, pfxrep)))
+        )
+    fichiers = sorted(os.listdir(join(cfg.dirout, pfxrep)))
+
+    liste_img_brut = [iio.read(join(cfg.dirout, pfxrep, i)) for i in fichiers]
+    for img, name in zip(
+        liste_img_brut,
+        ["imu2.png", "imv2.png", "imu1.png", "imv1.png", "imu0.png", "imv0.png"]
+    ):
+        img_normalized = normalize_image(img, sat=0.05)
+        iio.write(join(cfg.dirout, name), img_normalized)
+
+
+    liste_img_gray = [convert_to_gray_image(cfg, img) for img in liste_img_brut]
+    liste_img = [perturbate_image(img) for img in liste_img_gray]
+    return liste_img
+
+
+def sextupler_jmm(cfg):
+    """
+    ...
+    """
+    [imu2, imv2, imu1, imv1, imu0, imv0] = load_images(cfg)
+
+    ntests = imu2.shape[0] * imu2.shape[1]
+
+    # paire to test, pair of reference
+    phi, _, _ = compute_change(imu1, imu0, imu2, imu1, cfg)
+    nfa_u = ntests * phi
+    mappe_u = np.array(nfa_u < cfg.epsilon, dtype=np.uint8)
+
+    phi, _, _ = compute_change(imv1, imv0, imv2, imv1, cfg)
+    nfa_v = ntests * phi
+    mappe_v = np.array(nfa_v < cfg.epsilon, dtype=np.uint8)
+
+    mappe = mappe_v - mappe_u * mappe_v
+
+    iio.write(join(cfg.dirout, "map1.png"), 255 * mappe_u)
+    iio.write(join(cfg.dirout, "map2.png"), 255 * mappe_v)
+    iio.write(join(cfg.dirout, "map.png"), 255 * mappe)
+
+    return 0
+
+
+def sextupler_tdt(cfg):
+    """
+    ...
+    """
+    [imu2, imv2, imu1, imv1, imu0, imv0] = load_images(cfg)
+
+    ntests = imu2.shape[0] * imu2.shape[1]
+
+    # paire to test, pair of reference
+    phi, _, _ = compute_change(imu0, imv0, imu2, imv2, cfg)
+    map_u2v2_u0v0 = np.array(ntests * phi < cfg.epsilon, dtype=np.uint8)
+
+    phi, _, _ = compute_change(imu0, imv0, imu1, imv1, cfg)
+    map_u1v1_u0v0 = np.array(ntests * phi < cfg.epsilon, dtype=np.uint8)
+
+    phi, _, _ = compute_change(imv2, imv0, imu2, imu0, cfg)
+    map_u2u0_v2v0 = np.array(ntests * phi < cfg.epsilon, dtype=np.uint8)
+
+    phi, _, _ = compute_change(imv1, imv0, imu1, imu0, cfg)
+    map_u1u0_v1v0 = np.array(ntests * phi < cfg.epsilon, dtype=np.uint8)
+
+    # vote majoritaire
+    mappe = map_u2v2_u0v0 + map_u1v1_u0v0 + map_u2u0_v2v0 + map_u1u0_v1v0
+    mappe = np.array(2 < mappe, dtype=np.uint8)
+
+    # enregistrements
+    iio.write(join(cfg.dirout, "map_u2v2_u0v0.png"), 255 * map_u2v2_u0v0)
+    iio.write(join(cfg.dirout, "map_u1v1_u0v0.png"), 255 * map_u1v1_u0v0)
+    iio.write(join(cfg.dirout, "map_u2u0_v2v0.png"), 255 * map_u2u0_v2v0)
+    iio.write(join(cfg.dirout, "map_u1u0_v1v0.png"), 255 * map_u1u0_v1v0)
+    iio.write(join(cfg.dirout, "map.png"), 255 * mappe)
+
+    return 0
+
+
+def sextupler_full(cfg):
+    """
+    ...
+    """
+    [imu2, imv2, imu1, imv1, imu0, imv0] = load_images(cfg)
+
+    ntests = imu2.shape[0] * imu2.shape[1]
+
+    phi, _, _ = compute_change(imu1, imu0, imu2, imu1, cfg)
+    mappe_u = np.array(ntests * phi < cfg.epsilon, dtype=np.uint8)
+
+    phi, _, _ = compute_change(imv1, imv0, imv2, imv1, cfg)
+    mappe_v = np.array(ntests * phi < cfg.epsilon, dtype=np.uint8)
+
+    map_vmu = mappe_v - mappe_u * mappe_v
+
+    # paire to test, pair of reference
+    phi, _, _ = compute_change(imu0, imv0, imu2, imv2, cfg)
+    map_u2v2_u0v0 = np.array(ntests * phi < cfg.epsilon, dtype=np.uint8)
+
+    phi, _, _ = compute_change(imu0, imv0, imu1, imv1, cfg)
+    map_u1v1_u0v0 = np.array(ntests * phi < cfg.epsilon, dtype=np.uint8)
+
+    phi, _, _ = compute_change(imv2, imv0, imu2, imu0, cfg)
+    map_u2u0_v2v0 = np.array(ntests * phi < cfg.epsilon, dtype=np.uint8)
+
+    phi, _, _ = compute_change(imv1, imv0, imu1, imu0, cfg)
+    map_u1u0_v1v0 = np.array(ntests * phi < cfg.epsilon, dtype=np.uint8)
+
+    # vote majoritaire
+    mappe = (
+        map_vmu + map_u2v2_u0v0 + map_u1v1_u0v0 + map_u2u0_v2v0 + map_u1u0_v1v0
+    )
+    mappe = np.array(2 < mappe, dtype=np.uint8)
+
+    # enregistrements
+    iio.write(join(cfg.dirout, "map1.png"), 255 * mappe_u)
+    iio.write(join(cfg.dirout, "map2.png"), 255 * mappe_v)
+    iio.write(join(cfg.dirout, "map_u2v2_u0v0.png"), 255 * map_u2v2_u0v0)
+    iio.write(join(cfg.dirout, "map_u1v1_u0v0.png"), 255 * map_u1v1_u0v0)
+    iio.write(join(cfg.dirout, "map_u2u0_v2v0.png"), 255 * map_u2u0_v2v0)
+    iio.write(join(cfg.dirout, "map_u1u0_v1v0.png"), 255 * map_u1u0_v1v0)
+    iio.write(join(cfg.dirout, "map.png"), 255 * mappe)
+
+    return 0
+
+
 def load_parameters():
     """
     …
@@ -360,6 +497,67 @@ def load_parameters():
         "--channel", type=int, required=False, help="Channel."
     )
 
+    c_parser = subparsers.add_parser(
+        "jmmzipper", help="Between 6 images. JMM approach.")
+    c_parser.add_argument(
+        "--zip", type=str, required=True, help="Zip contenant 6 images."
+    )
+    c_parser.add_argument(
+        "--epsilon", type=float, required=False, default=1.0,
+        help="NFA threshold."
+    )
+    c_parser.add_argument(
+        "--b", type=int, required=True,
+        help="Side of the square neighborhood of x."
+    )
+    c_parser.add_argument(
+        "--dirout", type=str, required=True, help="Output directory."
+    )
+    c_parser.add_argument(
+        "--channel", type=int, required=False, help="Channel."
+    )
+
+    d_parser = subparsers.add_parser(
+        "tdtzipper", help="Between 6 images. TDT approach.")
+    d_parser.add_argument(
+        "--zip", type=str, required=True, help="Zip contenant 6 images."
+    )
+    d_parser.add_argument(
+        "--epsilon", type=float, required=False, default=1.0,
+        help="NFA threshold."
+    )
+    d_parser.add_argument(
+        "--b", type=int, required=True,
+        help="Side of the square neighborhood of x."
+    )
+    d_parser.add_argument(
+        "--dirout", type=str, required=True, help="Output directory."
+    )
+    d_parser.add_argument(
+        "--channel", type=int, required=False, help="Channel."
+    )
+
+
+    e_parser = subparsers.add_parser(
+        "full", help="Between 6 images. Mixed JMM + TDT approach.")
+    e_parser.add_argument(
+        "--zip", type=str, required=True, help="Zip contenant 6 images."
+    )
+    e_parser.add_argument(
+        "--epsilon", type=float, required=False, default=1.0,
+        help="NFA threshold."
+    )
+    e_parser.add_argument(
+        "--b", type=int, required=True,
+        help="Side of the square neighborhood of x."
+    )
+    e_parser.add_argument(
+        "--dirout", type=str, required=True, help="Output directory."
+    )
+    e_parser.add_argument(
+        "--channel", type=int, required=False, help="Channel."
+    )
+
     cfg = parser.parse_args()
 
     return cfg
@@ -383,6 +581,16 @@ def main():
         imu1 = iio.read(cfg.u1)
         imv1 = iio.read(cfg.v1)
 
+    if cfg.action == "jmmzipper":
+        sextupler_jmm(cfg)
+        return 0
+    if cfg.action == "tdtzipper":
+        sextupler_tdt(cfg)
+        return 0
+    if cfg.action == "full":
+        sextupler_full(cfg)
+        return 0
+
     if cfg.action == "zipper":
         with zipfile.ZipFile(cfg.zip, 'r') as monzip:
             fichiers = sorted([basename(f) for f in monzip.namelist()])
@@ -405,7 +613,7 @@ def main():
                          ["imu0.png", "imv0.png", "imu1.png", "imv1.png"]):
         img_normalized = normalize_image(img, sat=0.05)
         iio.write(join(cfg.dirout, name), img_normalized)
-        
+
     imu0 = convert_to_gray_image(cfg, imu0)
     imv0 = convert_to_gray_image(cfg, imv0)
     imu1 = convert_to_gray_image(cfg, imu1)
