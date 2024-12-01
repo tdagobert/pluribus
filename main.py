@@ -261,9 +261,9 @@ def convert_to_rainbow_image(img, apply_log=True):
     """
     Make a jetcolor image map.
     """
-#    epsilon=1-e20
+    epsilon=1e-10
     if apply_log:
-        img = np.log(img)
+        img = np.log(img+epsilon)
         mini = np.min(img)
         maxi = np.max(img)
 
@@ -327,7 +327,7 @@ def load_images(cfg):
         liste_img_brut,
         ["imu2.png", "imv2.png", "imu1.png", "imv1.png", "imu0.png", "imv0.png"]
     ):
-        img_normalized = normalize_image(img, sat=0.05)
+        img_normalized = normalize_image(img, sat=0.005)
         iio.write(join(cfg.dirout, name), img_normalized)
 
 
@@ -407,24 +407,36 @@ def sextupler_full(cfg):
 
     phi, _, _ = compute_change(imu1, imu0, imu2, imu1, cfg)
     mappe_u = np.array(ntests * phi < cfg.epsilon, dtype=np.uint8)
+    iio.write(
+        join(cfg.dirout, "phi_u.png"), convert_to_rainbow_image(phi))
 
     phi, _, _ = compute_change(imv1, imv0, imv2, imv1, cfg)
     mappe_v = np.array(ntests * phi < cfg.epsilon, dtype=np.uint8)
+    iio.write(
+        join(cfg.dirout, "phi_v.png"), convert_to_rainbow_image(phi))
 
     map_vmu = mappe_v - mappe_u * mappe_v
 
     # paire to test, pair of reference
     phi, _, _ = compute_change(imu0, imv0, imu2, imv2, cfg)
     map_u2v2_u0v0 = np.array(ntests * phi < cfg.epsilon, dtype=np.uint8)
+    iio.write(
+        join(cfg.dirout, "phi_u2v2_u0v0.png"), convert_to_rainbow_image(phi))
 
     phi, _, _ = compute_change(imu0, imv0, imu1, imv1, cfg)
     map_u1v1_u0v0 = np.array(ntests * phi < cfg.epsilon, dtype=np.uint8)
+    iio.write(
+        join(cfg.dirout, "phi_u1v1_u0v0.png"), convert_to_rainbow_image(phi))
 
     phi, _, _ = compute_change(imv2, imv0, imu2, imu0, cfg)
     map_u2u0_v2v0 = np.array(ntests * phi < cfg.epsilon, dtype=np.uint8)
+    iio.write(
+        join(cfg.dirout, "phi_u2u0_v2v0.png"), convert_to_rainbow_image(phi))
 
     phi, _, _ = compute_change(imv1, imv0, imu1, imu0, cfg)
     map_u1u0_v1v0 = np.array(ntests * phi < cfg.epsilon, dtype=np.uint8)
+    iio.write(
+        join(cfg.dirout, "phi_u1u0_u0v0.png"), convert_to_rainbow_image(phi))
 
     # vote majoritaire
     mappe = (
