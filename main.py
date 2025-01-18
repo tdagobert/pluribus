@@ -469,7 +469,7 @@ def sextupler_jmm(cfg):
 
     ntests = imu2.shape[0] * imu2.shape[1]
 
-    # paire to test, pair of reference
+    # pair to test, pair of reference
     phi, _, _ = compute_change(imu1, imu0, imu2, imu1, cfg)
     nfa_u = ntests * phi
     mappe_u = np.array(nfa_u < cfg.epsilon, dtype=np.uint8)
@@ -561,7 +561,7 @@ def sextupler_full(cfg):
     phi, _, _ = compute_change(imv1, imv0, imu1, imu0, cfg)
     map_u1u0_v1v0 = np.array(ntests * phi < cfg.epsilon, dtype=np.uint8)
     iio.write(
-        join(cfg.dirout, "phi_u1u0_u0v0.png"), convert_to_rainbow_image(phi))
+        join(cfg.dirout, "phi_u1u0_v1v0.png"), convert_to_rainbow_image(phi))
 
     # vote majoritaire
     mappe = (
@@ -579,6 +579,37 @@ def sextupler_full(cfg):
     iio.write(join(cfg.dirout, "map.png"), 255 * mappe)
 
     return 0
+
+
+def quadruplet(cfg):
+    """
+    ...
+    """
+    [_, _, imu1, imv1, imu0, imv0] = load_images(cfg)
+
+    ntests = imu1.shape[0] * imu1.shape[1]
+
+    # pair to test, pair of reference
+    phi, _, _ = compute_change(imu0, imv0, imu1, imv1, cfg)
+    nfa_u = ntests * phi
+    mappe_u = np.array(nfa_u < cfg.epsilon, dtype=np.uint8)
+    iio.write(
+        join(cfg.dirout, "phi_u1v1_u0v0.png"), convert_to_rainbow_image(phi)
+    )
+
+    phi, _, _ = compute_change(imv1, imv0, imu1, imu0, cfg)
+    nfa_v = ntests * phi
+    mappe_v = np.array(nfa_v < cfg.epsilon, dtype=np.uint8)
+    iio.write(
+        join(cfg.dirout, "phi_u1u0_v1v0.png"), convert_to_rainbow_image(phi))
+
+    # combination
+    mappe = mappe_u * mappe_v
+
+    iio.write(join(cfg.dirout, "map1.png"), 255 * mappe_u)
+    iio.write(join(cfg.dirout, "map2.png"), 255 * mappe_v)
+    iio.write(join(cfg.dirout, "map.png"), 255 * mappe)
+    return
 
 
 def load_parameters():
@@ -619,7 +650,7 @@ def load_parameters():
         default="angle", help="..."
     )
 
-    b_parser = subparsers.add_parser("zipper", help="Between 4 images.")
+    b_parser = subparsers.add_parser("quad", help="Between 4 images.")
     b_parser.add_argument(
         "--zip", type=str, required=True, help="Zip contenant 4 images."
     )
@@ -643,7 +674,7 @@ def load_parameters():
     )
 
     c_parser = subparsers.add_parser(
-        "jmmzipper", help="Between 6 images. JMM approach.")
+        "jmmquad", help="Between 6 images. JMM approach.")
     c_parser.add_argument(
         "--zip", type=str, required=True, help="Zip contenant 6 images."
     )
@@ -667,7 +698,7 @@ def load_parameters():
     )
 
     d_parser = subparsers.add_parser(
-        "tdtzipper", help="Between 6 images. TDT approach.")
+        "tdtquad", help="Between 6 images. TDT approach.")
     d_parser.add_argument(
         "--zip", type=str, required=True, help="Zip contenant 6 images."
     )
@@ -742,33 +773,19 @@ def main():
         imu1 = iio.read(cfg.u1)
         imv1 = iio.read(cfg.v1)
 
-    if cfg.action == "jmmzipper":
+    if cfg.action == "jmmquad":
         sextupler_jmm(cfg)
         return 0
-    if cfg.action == "tdtzipper":
+    if cfg.action == "tdtquad":
         sextupler_tdt(cfg)
         return 0
     if cfg.action == "full":
         sextupler_full(cfg)
         return 0
 
-    if cfg.action == "zipper":
-        with zipfile.ZipFile(cfg.zip, 'r') as monzip:
-            fichiers = sorted([basename(f) for f in monzip.namelist()])
-            pfxrep = [dirname(f) for f in monzip.namelist()][0]
-            print(pfxrep)
-            monzip.extractall(path=cfg.dirout)
-            print(
-                "contenu du répertoire:",
-                sorted(os.listdir(join(cfg.dirout, pfxrep)))
-            )
-            fichiers = sorted(os.listdir(join(cfg.dirout, pfxrep)))[-4:]
-            print(fichiers)
-            print(f"u1={fichiers[0]} v1={fichiers[1]} u0={fichiers[2]}  v0={fichiers[3]}")
-            imu0 = iio.read(join(cfg.dirout, pfxrep, fichiers[2]))
-            imv0 = iio.read(join(cfg.dirout, pfxrep, fichiers[3]))
-            imu1 = iio.read(join(cfg.dirout, pfxrep, fichiers[0]))
-            imv1 = iio.read(join(cfg.dirout, pfxrep, fichiers[1]))
+    if cfg.action == "quad":
+        quadruplet(cfg)
+        return 0
 
     for img, name in zip([imu0, imv0, imu1, imv1],
                          ["imu0.png", "imv0.png", "imu1.png", "imv1.png"]):
