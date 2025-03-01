@@ -184,7 +184,7 @@ def kolmogorov_smirnov(data1, data2):
     # using searchsorted solves equal data problem
 #com    cdf1 = np.searchsorted(data1, data_all, side='right') / n1
 #com    cdf2 = np.searchsorted(data2, data_all, side='right') / n2
-    print("maxi cdf1", np.max(cdf1))
+#    print("maxi cdf1", np.max(cdf1))
     cddiffs = cdf1 - cdf2
 
     # Identify the location of the statistic
@@ -200,7 +200,7 @@ def kolmogorov_smirnov(data1, data2):
 #    d = maxS
 #     d = cddiffs[np.argmax(cddiffs)]
     d = np.max(cddiffs)
-    print(f"d={d}")
+#    print(f"d={d}")
 #    d_location = loc_maxS
 #    d_sign = 1
     g = gcd(n1, n2)
@@ -211,6 +211,7 @@ def kolmogorov_smirnov(data1, data2):
     lcm = (n1 // g) * n2
     h = int(np.round(d * lcm))
     d = h * 1.0 / lcm
+    print(f"lcm={lcm}, h={h}, n1={n1}, n2={n2}")
     if h == 0:
         return True, d, 1.0
     # prob = binom(2n, n-h) / binom(2n, n)
@@ -281,7 +282,7 @@ def angular(cfg, im1, im2, with_mag=False):
     gv_im2 = ndimage.sobel(im2, 1)  # vertical gradient
     grad_im2 = np.stack((gh_im2, gv_im2), axis=-1)
     magnitude = None
-    if with_mag:
+    if cfg.weighted:
         magnitude = norm(grad_im1, axis=2) + norm(grad_im2, axis=2)
 
     if cfg.feature == "magnitude":
@@ -306,6 +307,29 @@ def angular(cfg, im1, im2, with_mag=False):
     return cosine, magnitude
 
 
+def vue_ks(tested, refered, w_tested, w_refered):
+    """
+    ...
+    """
+    if w_tested is None:
+        tested, bint = np.histogram(tested, bins=200)
+        refered, binr = np.histogram(refered, bins=200)
+        titre = "Non pondéré"
+    else:
+        tested, bint = np.histogram(tested, bins=20, weights=w_tested)
+        refered, binr = np.histogram(refered, bins=20, weights=w_refered)
+        titre = "Pondéré"
+
+    decalage = 0.1
+    width = 0.05
+    plt.title(titre)
+    plt.bar(bint[:-1], tested, width=width, label="testé")
+    plt.bar(binr[:-1] + decalage, refered, width=width, label="reférence")
+    plt.legend()
+    plt.show()
+    return
+
+
 def compute_change(imu0, imv0, imu1, imv1, cfg):
     """
     Parameters
@@ -321,7 +345,7 @@ def compute_change(imu0, imv0, imu1, imv1, cfg):
     b : int
         Side of the square neighborhood of x.
     """
-
+    print(f"WEIGHTED={cfg.weighted}")
     # computes the angular difference
     angle0, mag0 = angular(cfg, imu0, imv0, with_mag=True)
     angle1, mag1 = angular(cfg, imu1, imv1, with_mag=True)
@@ -334,6 +358,8 @@ def compute_change(imu0, imv0, imu1, imv1, cfg):
     phi = np.nan * np.ones((nrow, ncol, 1))
 #    uni1 = np.nan * np.ones((nrow, ncol, 1))
 #    uni0 = np.nan * np.ones((nrow, ncol, 1))
+    tilemag0 = None
+    tilemag1 = None
     # computation per pixel
     for x_i in np.arange(nrow):
 #        print(x_i)
@@ -345,9 +371,13 @@ def compute_change(imu0, imv0, imu1, imv1, cfg):
             # neighborhood of x
             tile0 = angle0[x_i-h_b:x_i+h_b+1, x_j-h_b:x_j+h_b+1].flatten()
             tile1 = angle1[x_i-h_b:x_i+h_b+1, x_j-h_b:x_j+h_b+1].flatten()
-            if mag0 is not None:
+                
+            if cfg.weighted:
                 tilemag0 = mag0[x_i-h_b:x_i+h_b+1, x_j-h_b:x_j+h_b+1].flatten()
-                tilemag1 = mag1[x_i-h_b:x_i+h_b+1, x_j-h_b:x_j+h_b+1].flatten()            
+                tilemag1 = mag1[x_i-h_b:x_i+h_b+1, x_j-h_b:x_j+h_b+1].flatten()
+
+            if x_j == 181 and x_i == 266:
+                vue_ks(tile0, tile1, tilemag0, tilemag1)
 #            uniform = np.linspace(np.min(tile0), np.max(tile0), num=tile0.size)
 #            _, pvalue = stats.ks_2samp(uniform, tile0)
 #            uni0[x_i, x_j, 0] = pvalue
@@ -356,12 +386,13 @@ def compute_change(imu0, imv0, imu1, imv1, cfg):
 #            uni1[x_i, x_j, 0] = pvalue
             # Kolmogorov-Smirnov test
 #            _, pvalue = stats.ks_2samp(tile1, tile0, alternative="greater")
-            if mag0 is None:
-                _, _, pvalue = kolmogorov_smirnov(tile1, tile0)
-            else:
+            if cfg.weighted:
                 _, _, pvalue = kolmogorov_smirnov_weighted(
                     tile1, tile0, tilemag0, tilemag1
                 )
+            else:
+                _, _, pvalue = kolmogorov_smirnov(tile1, tile0)
+
 #            print(pvalue)
             phi[x_i, x_j, 0] = pvalue
     phi = handle_boundaries(phi)
@@ -596,7 +627,7 @@ def quadruplet(cfg):
     iio.write(
         join(cfg.dirout, "phi_u1v1_u0v0.png"), convert_to_rainbow_image(phi)
     )
-
+    # pair to test, pair of reference
     phi, _, _ = compute_change(imv1, imv0, imu1, imu0, cfg)
     nfa_v = ntests * phi
     mappe_v = np.array(nfa_v < cfg.epsilon, dtype=np.uint8)
@@ -672,7 +703,11 @@ def load_parameters():
         "--feature", type=str, required=False, choices=["angle", "magnitude"],
         default="angle", help="..."
     )
-
+    b_parser.add_argument(
+        "--weighted", action=argparse.BooleanOptionalAction, required=True,
+        help="Weighted."
+    )
+    
     c_parser = subparsers.add_parser(
         "jmmquad", help="Between 6 images. JMM approach.")
     c_parser.add_argument(
