@@ -211,7 +211,7 @@ def kolmogorov_smirnov(data1, data2):
     lcm = (n1 // g) * n2
     h = int(np.round(d * lcm))
     d = h * 1.0 / lcm
-    print(f"lcm={lcm}, h={h}, n1={n1}, n2={n2}")
+#    print(f"lcm={lcm}, h={h}, n1={n1}, n2={n2}")
     if h == 0:
         return True, d, 1.0
     # prob = binom(2n, n-h) / binom(2n, n)
