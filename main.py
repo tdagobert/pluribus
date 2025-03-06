@@ -733,7 +733,7 @@ def load_parameters():
     )
 
     d_parser = subparsers.add_parser(
-        "tdtquad", help="Between 6 images. TDT approach.")
+        "sext", help="Between 6 images. TDT approach.")
     d_parser.add_argument(
         "--zip", type=str, required=True, help="Zip contenant 6 images."
     )
@@ -755,7 +755,10 @@ def load_parameters():
         "--feature", type=str, required=False, choices=["angle", "magnitude"],
         default="angle", help="..."
     )
-
+    d_parser.add_argument(
+        "--weighted", action=argparse.BooleanOptionalAction, required=True,
+        help="Weighted."
+    )
 
     e_parser = subparsers.add_parser(
         "full", help="Between 6 images. Mixed JMM + TDT approach.")
@@ -811,7 +814,7 @@ def main():
     if cfg.action == "jmmquad":
         sextupler_jmm(cfg)
         return 0
-    if cfg.action == "tdtquad":
+    if cfg.action == "sext":
         sextupler_tdt(cfg)
         return 0
     if cfg.action == "full":
