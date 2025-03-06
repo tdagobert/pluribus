@@ -541,7 +541,7 @@ def sextupler_tdt(cfg):
 
     # vote majoritaire
     mappe = map_u2v2_u0v0 + map_u1v1_u0v0 + map_u2u0_v2v0 + map_u1u0_v1v0
-    mappe = np.array(2 < mappe, dtype=np.uint8)
+    mappe = np.array(cfg.vote <= mappe, dtype=np.uint8)
 
     # enregistrements
     iio.write(join(cfg.dirout, "map_u2v2_u0v0.png"), 255 * map_u2v2_u0v0)
@@ -745,6 +745,10 @@ def load_parameters():
         "--b", type=int, required=True,
         help="Side of the square neighborhood of x."
     )
+    d_parser.add_argument(
+        "--vote", type=int, required=True, default=2,
+        help="Vote majoritaire."
+    )    
     d_parser.add_argument(
         "--dirout", type=str, required=True, help="Output directory."
     )
