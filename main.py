@@ -306,62 +306,55 @@ def angular(cfg, im1, im2, with_mag=False):
     return cosine, magnitude
 
 
-def compute_change(imu0, imv0, imu1, imv1, cfg):
+def compute_change(imsu_n, imsv_n, cfg):
     """
     Parameters
     ----------
-    imu0 : np.array ndim=(nrow, ncol)
-        Reference image.
-    imv0 : np.array ndim=(nrow, ncol)
-        Compared image.
-    imu1 : np.array ndim=(nrow, ncol)
-        Reference image one year before.
-    imv1 : np.array ndim=(nrow, ncol)
-        Compared image one year before.
+    imsu_n : list of np.array ndim=(nrow, ncol)
+        List of reference images.
+    imsv_n : liste of np.array ndim=(nrow, ncol)
+        List of compared images.
     b : int
         Side of the square neighborhood of x.
     """
 
-    # computes the angular difference
-    angle0, mag0 = angular(cfg, imu0, imv0, with_mag=True)
-    angle1, mag1 = angular(cfg, imu1, imv1, with_mag=True)
+    # random permutations
+    mat = np.empty((cfg.b * cfg.b * npairs, ndrop), dtype=np.int8)
 
-#    print(angle0.dtype, mag0.dtype)
-    nrow, ncol = imu0.shape
+    for i in np.arange(ndrop):
+        a = np.arange(cfg.b * cfg.b * npairs)
+        np.random.shuffle(a)
+        mat = np.concatenate((mat, a), axis=1)
+
+    # only the first lines
+    mat = mat[:cfg.b*cfg.b,:]
+    # computes the angular difference
+    for imu_n, imv_n in zip(imsu_n, imsv_n):
+        angle, _ = angular(cfg, imsu_n, imsv_n, with_mag=True)
+        angle_n += [angle]
+
+    nrow, ncol = imsu_n[0].shape
     h_b = cfg.b // 2
 
+    angle_0 = angle_n[-1]
+    angle_n = np.concatenate(angle_n[0:-2], axis=0)
     # initialization
-    phi = np.nan * np.ones((nrow, ncol, 1))
-#    uni1 = np.nan * np.ones((nrow, ncol, 1))
-#    uni0 = np.nan * np.ones((nrow, ncol, 1))
+    phi = np.nan * np.ones((nrow, ncol, ndrop))
     # computation per pixel
     for x_i in np.arange(nrow):
-#        print(x_i)
         for x_j in np.arange(ncol):
             # limits tests
             if (x_i-h_b < 0 or nrow <= x_i+h_b
                 or x_j-h_b < 0 or ncol <= x_j+h_b):
                 continue
             # neighborhood of x
-            tile0 = angle0[x_i-h_b:x_i+h_b+1, x_j-h_b:x_j+h_b+1].flatten()
-            tile1 = angle1[x_i-h_b:x_i+h_b+1, x_j-h_b:x_j+h_b+1].flatten()
-            if mag0 is not None:
-                tilemag0 = mag0[x_i-h_b:x_i+h_b+1, x_j-h_b:x_j+h_b+1].flatten()
-                tilemag1 = mag1[x_i-h_b:x_i+h_b+1, x_j-h_b:x_j+h_b+1].flatten()            
-#            uniform = np.linspace(np.min(tile0), np.max(tile0), num=tile0.size)
-#            _, pvalue = stats.ks_2samp(uniform, tile0)
-#            uni0[x_i, x_j, 0] = pvalue
-#            uniform = np.linspace(np.min(tile1), np.max(tile1), num=tile1.size)
-#            _, pvalue = stats.ks_2samp(uniform, tile1)
-#            uni1[x_i, x_j, 0] = pvalue
-            # Kolmogorov-Smirnov test
-#            _, pvalue = stats.ks_2samp(tile1, tile0, alternative="greater")
-            if mag0 is None:
-                _, _, pvalue = kolmogorov_smirnov(tile1, tile0)
-            else:
-                _, _, pvalue = kolmogorov_smirnov_weighted(
-                    tile1, tile0, tilemag0, tilemag1
-                )
+            tile0 = angle_0[x_i-h_b:x_i+h_b+1, x_j-h_b:x_j+h_b+1].flatten()
+            tile_n = angle_n[x_i-h_b:x_i+h_b+1, x_j-h_b:x_j+h_b+1, :].flatten()
+
+            for i in np.arange(ndrop):
+                tilen = tile_n[mat[:, i]]
+            _, _, pvalue = kolmogorov_smirnov(tilen, tile0)
+
 #            print(pvalue)
             phi[x_i, x_j, 0] = pvalue
     phi = handle_boundaries(phi)
