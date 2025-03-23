@@ -38,7 +38,6 @@
 
 import os
 from os.path import exists, join, basename, dirname
-#import shutil
 import argparse
 import timeit
 import zipfile
@@ -46,8 +45,6 @@ from math import gcd
 
 import numpy as np
 from numpy.linalg import norm
-#from scipy.ndimage import gaussian_filter
-#from scipy.special import factorial
 from scipy import ndimage
 from scipy import stats
 
@@ -56,105 +53,7 @@ import matplotlib.pyplot as plt
 from numba import njit
 #import imageio as iio
 import iio
-global I, J
 
-@njit
-def kolmogorov_smirnov_weighted(data1, data2, weight1, weight2):
-    """
-    ...
-    """
-    idx1 = np.argsort(data1)
-    idx2 = np.argsort(data2)
-    weight1 = weight1[idx1]
-    weight2 = weight2[idx2]    
-    data1 = np.sort(data1)
-    data2 = np.sort(data2)
-
-    n1 = data1.shape[0]
-    n2 = data2.shape[0]
-    if min(n1, n2) == 0:
-        raise ValueError('Data passed to ks_2samp must not be empty')
-
-    data_all = np.zeros(n1+n2)
-    data_all[0:n1] = data1[:]
-    data_all[n1:] = data2[:]
-    cwei1 = np.zeros(weight1.size+1)
-    cwei1[1:] = np.cumsum(weight1)/np.sum(weight1)
-    cwei2 = np.zeros(weight2.size+1)
-    cwei2[1:] = np.cumsum(weight2)/np.sum(weight2)
-#    print(f"{weight1.shape}")
-#    print(f"weight1={weight1}")
-#    print(f"cwei1={cwei1}")
-#    cwei1 = np.hstack([0, np.cumsum(weight1)/sum(weight1)])
-#    cwei2 = np.hstack([0, np.cumsum(weight2)/sum(weight2)])
-    #com ne passe pas en njit    data_all = np.concatenate([data1, data2])
-    # using searchsorted solves equal data problem
-#    cdf1 = np.searchsorted(data1, data_all, side='right') / n1
-#    cdf2 = np.searchsorted(data2, data_all, side='right') / n2
-#    rien = np.searchsorted(data1, data_all, side='right')
-#    print(rien)
-#    cdf1 = cwei1[rien]
-#    print(cdf1)
-#com    cdf1 = cwei1[[rien]]
-#    tout = np.searchsorted(data2, data_all, side='right')
-#com    cdf2 = cwei2[[tout]]
-    cdf1 = cwei1[np.searchsorted(data1, data_all, side='right')]
-    cdf2 = cwei2[np.searchsorted(data2, data_all, side='right')]
- #   print("cwei1", cwei1)
-  #  print("cdf1", cdf1)
-   # print("maxi weighted cdf1", np.max(cdf1))
-#    cdf1 = np.zeros(1)
-#    cdf2 = np.zeros(1)
-    cddiffs = cdf1 - cdf2
-
-    d = np.max(cddiffs)
-#    print(f"d={d}")
-
-    g = gcd(n1, n2)
-    prob = -np.inf
-
-    lcm = (n1 // g) * n2
-    h = int(np.round(d * lcm))
-    d = h * 1.0 / lcm
-    if h == 0:
-        return True, d, 1.0
-    # prob = binom(2n, n-h) / binom(2n, n)
-    # Evaluating in that form incurs roundoff errors
-    # from special.binom. Instead calculate directly
-    jrange = np.arange(h)
-    prob = np.prod((n1 - jrange) / (n1 + jrange + 1.0))
-    return True, d, prob
-
-#com    print(cdf1.shape)
-#com    xxx = np.arange(cdf1.size)
-#com    plt.figure(1)
-#com    plt.bar(xxx, cdf1.squeeze(), width=0.3, color="blue")
-
-
-#com#    plt.bar(xxx, cddiffs.squeeze(), width=0.3, color="green")        
-#com    wei1 = np.ones(data1.size)
-#com    wei1[0] = 0.01
-#com    cwei1 = np.hstack([0, np.cumsum(wei1)/sum(wei1)])
-#com    cdf1we = cwei1[[np.searchsorted(data1, data_all, side='right')]]
-#com
-#com    print(cdf1we.shape)
-#com    xxx = np.arange(cdf1we.size)+0.5
-#com#    plt.bar(xxx, cdf1we.squeeze(), width=0.3, color="red")
-#com    plt.show()
-    
-#com    
-#com    ix1 = np.argsort(data1)
-#com    ix2 = np.argsort(data2)
-#com    data1 = data1[ix1]
-#com    data2 = data2[ix2]
-#com    wei1 = wei1[ix1]
-#com    wei2 = wei2[ix2]
-#com    
-#com    data = np.concatenate([data1, data2])
-#com    cwei1 = np.hstack([0, np.cumsum(wei1)/sum(wei1)])
-#com    cwei2 = np.hstack([0, np.cumsum(wei2)/sum(wei2)])
-#com    cdf1we = cwei1[[np.searchsorted(data1, data, side='right')]]
-#com    cdf2we = cwei2[[np.searchsorted(data2, data, side='right')]]
 
 #@njit
 def kolmogorov_smirnov(data1, data2):
@@ -163,62 +62,43 @@ def kolmogorov_smirnov(data1, data2):
     """
     data1 = np.sort(data1)
     data2 = np.sort(data2)
-    n1 = data1.shape[0]
-    n2 = data2.shape[0]
-    if min(n1, n2) == 0:
+    assert data1.shape[0] == data2.shape[0]
+    n_1 = data1.shape[0]
+
+    if min(n_1, n_1) == 0:
         raise ValueError('Data passed to ks_2samp must not be empty')
 
-    data_all = np.zeros(n1+n2)
-    data_all[0:n1] = data1[:]
-    data_all[n1:] = data2[:]
+    data_all = np.zeros(n_1 + n_1)
+    data_all[0:n_1] = data1[:]
+    data_all[n_1:] = data2[:]
 
     weight1 = np.ones(data1.shape).squeeze()
     weight2 = np.ones(data1.shape).squeeze()
-    cwei1 = np.zeros(weight1.size+1)
-    cwei1[1:] = np.cumsum(weight1)/np.sum(weight1)
-    cwei2 = np.zeros(weight2.size+1)
-    cwei2[1:] = np.cumsum(weight2)/np.sum(weight2)
+    cwei1 = np.zeros(weight1.size + 1)
+    cwei1[1: ] = np.cumsum(weight1) / np.sum(weight1)
+    cwei2 = np.zeros(weight2.size + 1)
+    cwei2[1: ] = np.cumsum(weight2) / np.sum(weight2)
     cdf1 = cwei1[np.searchsorted(data1, data_all, side='right')]
     cdf2 = cwei2[np.searchsorted(data2, data_all, side='right')]
-    #    data_all = np.concatenate([data1, data2])
-    # using searchsorted solves equal data problem
-#com    cdf1 = np.searchsorted(data1, data_all, side='right') / n1
-#com    cdf2 = np.searchsorted(data2, data_all, side='right') / n2
+
     print("maxi cdf1", np.max(cdf1))
     cddiffs = cdf1 - cdf2
+    diff = np.max(cddiffs)
 
-    # Identify the location of the statistic
-#    argminS = np.argmin(cddiffs)
-#    argmaxS = np.argmax(cddiffs)
-#    loc_minS = data_all[argminS]
-#    loc_maxS = data_all[argmaxS]
-
-    # Ensure sign of minS is not negative.
-#    minS = np.clip(-cddiffs[argminS], 0, 1)
-#    maxS = cddiffs[argmaxS]
-
-#    d = maxS
-#     d = cddiffs[np.argmax(cddiffs)]
-    d = np.max(cddiffs)
-    print(f"d={d}")
-#    d_location = loc_maxS
-#    d_sign = 1
-    g = gcd(n1, n2)
-#    n1g = n1 // g
-#    n2g = n2 // g
+    valg = gcd(n_1, n_1)
     prob = -np.inf
 
-    lcm = (n1 // g) * n2
-    h = int(np.round(d * lcm))
-    d = h * 1.0 / lcm
-    if h == 0:
-        return True, d, 1.0
+    lcm = (n_1 // valg) * n_1
+    valh = int(np.round(diff * lcm))
+    diff = valh * 1.0 / lcm
+    if valh == 0:
+        return True, diff, 1.0
     # prob = binom(2n, n-h) / binom(2n, n)
     # Evaluating in that form incurs roundoff errors
     # from special.binom. Instead calculate directly
-    jrange = np.arange(h)
-    prob = np.prod((n1 - jrange) / (n1 + jrange + 1.0))
-    return True, d, prob
+    jrange = np.arange(valh)
+    prob = np.prod((n_1 - jrange) / (n_1 + jrange + 1.0))
+    return True, diff, prob
 
 
 @njit
@@ -269,7 +149,48 @@ def handle_boundaries(img):
 
 #@njit
 #@jit(nopython=False)
-def angular(cfg, im1, im2, with_mag=False):
+#def angular(cfg, im1, im2, with_mag=False):
+#    """
+#    Angular differences between the pixels of both images.
+#    """
+#    gh_im1 = ndimage.sobel(im1, 0)  # horizontal gradient
+#    gv_im1 = ndimage.sobel(im1, 1)  # vertical gradient
+#    grad_im1 = np.stack((gh_im1, gv_im1), axis=-1)
+#
+#    gh_im2 = ndimage.sobel(im2, 0)  # horizontal gradient
+#    gv_im2 = ndimage.sobel(im2, 1)  # vertical gradient
+#    grad_im2 = np.stack((gh_im2, gv_im2), axis=-1)
+#    magnitude = None
+#    if with_mag:
+#        magnitude = norm(grad_im1, axis=2) + norm(grad_im2, axis=2)
+#
+#    if cfg.feature == "magnitude":
+#        magnitude = np.sqrt(gh_im1**2 + gv_im1**2)
+#        iio.write(os.path.join(cfg.dirout, "magnitude.tif"), magnitude)
+#        return magnitude
+#    print(gh_im1.shape, grad_im1.shape)
+#
+##    w = np.tensordot(grad_im1, grad_im2, axes=(2))
+##    print(w.shape)
+##    exit()
+#
+#    prodsca = (
+#        grad_im1[:,:,0] * grad_im2[:,:,0] + grad_im1[:,:,1] * grad_im2[:,:,1]
+#    )
+#    cosine = np.arccos(
+#        prodsca / (norm(grad_im1, axis=2)*norm(grad_im2, axis=2))
+#    )
+##    cosine = prodsca
+#    cosine[np.isnan(cosine)] = 0.0
+#    print(cosine.shape)
+#    return cosine, magnitude
+#
+#@njit
+#@jit(nopython=False)
+def compute_theta(img1, img2):
+    """
+    ...
+    """
     """
     Angular differences between the pixels of both images.
     """
@@ -280,19 +201,6 @@ def angular(cfg, im1, im2, with_mag=False):
     gh_im2 = ndimage.sobel(im2, 0)  # horizontal gradient
     gv_im2 = ndimage.sobel(im2, 1)  # vertical gradient
     grad_im2 = np.stack((gh_im2, gv_im2), axis=-1)
-    magnitude = None
-    if with_mag:
-        magnitude = norm(grad_im1, axis=2) + norm(grad_im2, axis=2)
-
-    if cfg.feature == "magnitude":
-        magnitude = np.sqrt(gh_im1**2 + gv_im1**2)
-        iio.write(os.path.join(cfg.dirout, "magnitude.tif"), magnitude)
-        return magnitude
-    print(gh_im1.shape, grad_im1.shape)
-
-#    w = np.tensordot(grad_im1, grad_im2, axes=(2))
-#    print(w.shape)
-#    exit()
 
     prodsca = (
         grad_im1[:,:,0] * grad_im2[:,:,0] + grad_im1[:,:,1] * grad_im2[:,:,1]
@@ -300,11 +208,9 @@ def angular(cfg, im1, im2, with_mag=False):
     cosine = np.arccos(
         prodsca / (norm(grad_im1, axis=2)*norm(grad_im2, axis=2))
     )
-#    cosine = prodsca
     cosine[np.isnan(cosine)] = 0.0
-    print(cosine.shape)
-    return cosine, magnitude
-
+    return cosin
+    
 
 def compute_change(imsu_n, imsv_n, cfg):
     """
@@ -454,126 +360,6 @@ def load_images(cfg):
     return liste_img
 
 
-def sextupler_jmm(cfg):
-    """
-    ...
-    """
-    [imu2, imv2, imu1, imv1, imu0, imv0] = load_images(cfg)
-
-    ntests = imu2.shape[0] * imu2.shape[1]
-
-    # paire to test, pair of reference
-    phi, _, _ = compute_change(imu1, imu0, imu2, imu1, cfg)
-    nfa_u = ntests * phi
-    mappe_u = np.array(nfa_u < cfg.epsilon, dtype=np.uint8)
-
-    phi, _, _ = compute_change(imv1, imv0, imv2, imv1, cfg)
-    nfa_v = ntests * phi
-    mappe_v = np.array(nfa_v < cfg.epsilon, dtype=np.uint8)
-
-    mappe = mappe_v - mappe_u * mappe_v
-
-    iio.write(join(cfg.dirout, "map1.png"), 255 * mappe_u)
-    iio.write(join(cfg.dirout, "map2.png"), 255 * mappe_v)
-    iio.write(join(cfg.dirout, "map.png"), 255 * mappe)
-
-    return 0
-
-
-def sextupler_tdt(cfg):
-    """
-    ...
-    """
-    [imu2, imv2, imu1, imv1, imu0, imv0] = load_images(cfg)
-
-    ntests = imu2.shape[0] * imu2.shape[1]
-
-    # paire to test, pair of reference
-    phi, _, _ = compute_change(imu0, imv0, imu2, imv2, cfg)
-    map_u2v2_u0v0 = np.array(ntests * phi < cfg.epsilon, dtype=np.uint8)
-
-    phi, _, _ = compute_change(imu0, imv0, imu1, imv1, cfg)
-    map_u1v1_u0v0 = np.array(ntests * phi < cfg.epsilon, dtype=np.uint8)
-
-    phi, _, _ = compute_change(imv2, imv0, imu2, imu0, cfg)
-    map_u2u0_v2v0 = np.array(ntests * phi < cfg.epsilon, dtype=np.uint8)
-
-    phi, _, _ = compute_change(imv1, imv0, imu1, imu0, cfg)
-    map_u1u0_v1v0 = np.array(ntests * phi < cfg.epsilon, dtype=np.uint8)
-
-    # vote majoritaire
-    mappe = map_u2v2_u0v0 + map_u1v1_u0v0 + map_u2u0_v2v0 + map_u1u0_v1v0
-    mappe = np.array(2 < mappe, dtype=np.uint8)
-
-    # enregistrements
-    iio.write(join(cfg.dirout, "map_u2v2_u0v0.png"), 255 * map_u2v2_u0v0)
-    iio.write(join(cfg.dirout, "map_u1v1_u0v0.png"), 255 * map_u1v1_u0v0)
-    iio.write(join(cfg.dirout, "map_u2u0_v2v0.png"), 255 * map_u2u0_v2v0)
-    iio.write(join(cfg.dirout, "map_u1u0_v1v0.png"), 255 * map_u1u0_v1v0)
-    iio.write(join(cfg.dirout, "map.png"), 255 * mappe)
-
-    return 0
-
-
-def sextupler_full(cfg):
-    """
-    ...
-    """
-    [imu2, imv2, imu1, imv1, imu0, imv0] = load_images(cfg)
-
-    ntests = imu2.shape[0] * imu2.shape[1]
-
-    phi, _, _ = compute_change(imu1, imu0, imu2, imu1, cfg)
-    mappe_u = np.array(ntests * phi < cfg.epsilon, dtype=np.uint8)
-    iio.write(
-        join(cfg.dirout, "phi_u.png"), convert_to_rainbow_image(phi))
-
-    phi, _, _ = compute_change(imv1, imv0, imv2, imv1, cfg)
-    mappe_v = np.array(ntests * phi < cfg.epsilon, dtype=np.uint8)
-    iio.write(
-        join(cfg.dirout, "phi_v.png"), convert_to_rainbow_image(phi))
-
-    map_vmu = mappe_v - mappe_u * mappe_v
-
-    # paire to test, pair of reference
-    phi, _, _ = compute_change(imu0, imv0, imu2, imv2, cfg)
-    map_u2v2_u0v0 = np.array(ntests * phi < cfg.epsilon, dtype=np.uint8)
-    iio.write(
-        join(cfg.dirout, "phi_u2v2_u0v0.png"), convert_to_rainbow_image(phi))
-
-    phi, _, _ = compute_change(imu0, imv0, imu1, imv1, cfg)
-    map_u1v1_u0v0 = np.array(ntests * phi < cfg.epsilon, dtype=np.uint8)
-    iio.write(
-        join(cfg.dirout, "phi_u1v1_u0v0.png"), convert_to_rainbow_image(phi))
-
-    phi, _, _ = compute_change(imv2, imv0, imu2, imu0, cfg)
-    map_u2u0_v2v0 = np.array(ntests * phi < cfg.epsilon, dtype=np.uint8)
-    iio.write(
-        join(cfg.dirout, "phi_u2u0_v2v0.png"), convert_to_rainbow_image(phi))
-
-    phi, _, _ = compute_change(imv1, imv0, imu1, imu0, cfg)
-    map_u1u0_v1v0 = np.array(ntests * phi < cfg.epsilon, dtype=np.uint8)
-    iio.write(
-        join(cfg.dirout, "phi_u1u0_u0v0.png"), convert_to_rainbow_image(phi))
-
-    # vote majoritaire
-    mappe = (
-        map_vmu + map_u2v2_u0v0 + map_u1v1_u0v0 + map_u2u0_v2v0 + map_u1u0_v1v0
-    )
-    mappe = np.array(2 < mappe, dtype=np.uint8)
-
-    # enregistrements
-    iio.write(join(cfg.dirout, "map1.png"), 255 * mappe_u)
-    iio.write(join(cfg.dirout, "map2.png"), 255 * mappe_v)
-    iio.write(join(cfg.dirout, "map_u2v2_u0v0.png"), 255 * map_u2v2_u0v0)
-    iio.write(join(cfg.dirout, "map_u1v1_u0v0.png"), 255 * map_u1v1_u0v0)
-    iio.write(join(cfg.dirout, "map_u2u0_v2v0.png"), 255 * map_u2u0_v2v0)
-    iio.write(join(cfg.dirout, "map_u1u0_v1v0.png"), 255 * map_u1u0_v1v0)
-    iio.write(join(cfg.dirout, "map.png"), 255 * mappe)
-
-    return 0
-
-
 def load_parameters():
     """
     …
@@ -583,127 +369,27 @@ def load_parameters():
     parser = argparse.ArgumentParser(description=desc)
     subparsers = parser.add_subparsers(dest="action")
 
-    a_parser = subparsers.add_parser("apparier", help="Between 4 images.")
 
-    a_parser.add_argument(
-        "--u0", type=str, required=True, help="First image."
+    f_parser = subparsers.add_parser(
+        "series", help="N image series.")
+    f_parser.add_argument(
+        "--zip", type=str, required=True, help="Zip contenant 2N images."
     )
-    a_parser.add_argument(
-        "--v0", type=str, required=True, help="Second image."
-    )
-    a_parser.add_argument(
-        "--u1", type=str, required=True, help="First image one year before."
-    )
-    a_parser.add_argument(
-        "--v1", type=str, required=True, help="Second image one year before."
-    )
-    a_parser.add_argument(
-        "--b", type=int, required=True,
-        help="Side of the square neighborhood of x."
-    )
-    a_parser.add_argument(
-        "--dirout", type=str, required=True, help="Output directory."
-    )
-    a_parser.add_argument(
-        "--channel", type=int, required=False, help="Channel."
-    )
-    a_parser.add_argument(
-        "--feature", type=str, required=False, choices=["angle", "magnitude"],
-        default="angle", help="..."
-    )
-
-    b_parser = subparsers.add_parser("zipper", help="Between 4 images.")
-    b_parser.add_argument(
-        "--zip", type=str, required=True, help="Zip contenant 4 images."
-    )
-    b_parser.add_argument(
+    f_parser.add_argument(
         "--epsilon", type=float, required=False, default=1.0,
         help="NFA threshold."
     )
-    b_parser.add_argument(
+    f_parser.add_argument(
         "--b", type=int, required=True,
         help="Side of the square neighborhood of x."
     )
-    b_parser.add_argument(
+    f_parser.add_argument(
         "--dirout", type=str, required=True, help="Output directory."
     )
-    b_parser.add_argument(
+    f_parser.add_argument(
         "--channel", type=int, required=False, help="Channel."
     )
-    b_parser.add_argument(
-        "--feature", type=str, required=False, choices=["angle", "magnitude"],
-        default="angle", help="..."
-    )
-
-    c_parser = subparsers.add_parser(
-        "jmmzipper", help="Between 6 images. JMM approach.")
-    c_parser.add_argument(
-        "--zip", type=str, required=True, help="Zip contenant 6 images."
-    )
-    c_parser.add_argument(
-        "--epsilon", type=float, required=False, default=1.0,
-        help="NFA threshold."
-    )
-    c_parser.add_argument(
-        "--b", type=int, required=True,
-        help="Side of the square neighborhood of x."
-    )
-    c_parser.add_argument(
-        "--dirout", type=str, required=True, help="Output directory."
-    )
-    c_parser.add_argument(
-        "--channel", type=int, required=False, help="Channel."
-    )
-    c_parser.add_argument(
-        "--feature", type=str, required=False, choices=["angle", "magnitude"],
-        default="angle", help="..."
-    )
-
-    d_parser = subparsers.add_parser(
-        "tdtzipper", help="Between 6 images. TDT approach.")
-    d_parser.add_argument(
-        "--zip", type=str, required=True, help="Zip contenant 6 images."
-    )
-    d_parser.add_argument(
-        "--epsilon", type=float, required=False, default=1.0,
-        help="NFA threshold."
-    )
-    d_parser.add_argument(
-        "--b", type=int, required=True,
-        help="Side of the square neighborhood of x."
-    )
-    d_parser.add_argument(
-        "--dirout", type=str, required=True, help="Output directory."
-    )
-    d_parser.add_argument(
-        "--channel", type=int, required=False, help="Channel."
-    )
-    d_parser.add_argument(
-        "--feature", type=str, required=False, choices=["angle", "magnitude"],
-        default="angle", help="..."
-    )
-
-
-    e_parser = subparsers.add_parser(
-        "full", help="Between 6 images. Mixed JMM + TDT approach.")
-    e_parser.add_argument(
-        "--zip", type=str, required=True, help="Zip contenant 6 images."
-    )
-    e_parser.add_argument(
-        "--epsilon", type=float, required=False, default=1.0,
-        help="NFA threshold."
-    )
-    e_parser.add_argument(
-        "--b", type=int, required=True,
-        help="Side of the square neighborhood of x."
-    )
-    e_parser.add_argument(
-        "--dirout", type=str, required=True, help="Output directory."
-    )
-    e_parser.add_argument(
-        "--channel", type=int, required=False, help="Channel."
-    )
-    e_parser.add_argument(
+    f_parser.add_argument(
         "--feature", type=str, required=False, choices=["angle", "magnitude"],
         default="angle", help="..."
     )
@@ -713,133 +399,74 @@ def load_parameters():
     return cfg
 
 
+def traiter(cfg):
+    """
+    ...
+    """
+    with zipfile.ZipFile(cfg.zip, 'r') as monzip:
+        fichiers = sorted([basename(f) for f in monzip.namelist()])
+        pfxrep = [dirname(f) for f in monzip.namelist()][0]
+        print(pfxrep)
+        monzip.extractall(path=cfg.dirout)
+        print(sorted(os.listdir(join(cfg.dirout, pfxrep)))
+    )
+    files = sorted(os.listdir(join(cfg.dirout, pfxrep)))[:]
+    # (u_n)
+    files_u_n = files[0::2]
+    files_v_n = files[1::2]
+
+    imu_n = [convert_to_gray_image(cfg, iio.read(u_n)) for u_n in files_u_n]
+    imv_n = [convert_to_gray_image(cfg, iio.read(v_n)) for v_n in files_v_n]
+    imu_0, imu_1 = imu_n[-1], imu_n[-2]
+    imv_0, imv_1 = imv_n[-1], imv_n[-2]
+    imu_n = imu_n[:-2]
+    imv_n = imv_n[:-2]
+    theta_u1_u0 = compute_theta(imu_0, imu_1)
+    theta_v1_v0 = compute_theta(imv_0, imv_1)
+    # strategy 1
+
+    # strategy 2
+    nb = 0
+    avg_map = np.zeros((nlig, ncol), dtype=np.float)
+    for i in range(len(imu_n) - 1):
+        for j in range(i+1, len(imu_n)):
+            nb += 1
+            theta_ui_uj = compute_theta(imu_n[i], imu_n[j])
+            theta_vi_vj = compute_theta(imv_n[i], imv_n[j])
+            # compute Boolean map
+            map_u = compute_map(cfg, theta_u1_u0, theta_ui_uj)
+            map_v = compute_map(cfg, theta_v1_v0, theta_vi_vj)
+            # difference
+            map_d = map_v - map_u * map_v
+            avg_map += map_d
+    avg_map /= nb
+
+    # strategy 4
+    nb = 0
+    avg_map = np.zeros((nlig, ncol), dtype=np.float)
+    for i in range(len(imu_n)):
+        for j in range(i, len(imu_n)):
+            nb += 1
+            theta_ui_vj = compute_theta(imu_n[i], imv_n[j])
+            # compute Boolean map
+            mappe = compute_map(cfg, theta_u0_v0, theta_ui_vj)
+            avg_map += mappe
+    avg_map /= nb
+
 def main():
     """
     ...
     """
-#com    data1 = np.random.randn(20)
-#com    data2 = np.random.rand(20)
-#com    stats.ks_2samp(data1, data2)
-#com    kolmogorov_smirnov_weighted(data1, data2)
-#com    exit()
     cfg = load_parameters()
     if not exists(cfg.dirout):
         os.mkdir(cfg.dirout)
-#    else:
-#        shutil.rmtree(cfg.dirout)
 
-    imu0, imv0, imu1, imv1 = None, None, None, None
-    if cfg.action == "apparier":
-        imu0 = iio.read(cfg.u0)
-        imv0 = iio.read(cfg.v0)
-        imu1 = iio.read(cfg.u1)
-        imv1 = iio.read(cfg.v1)
+    if cfg.action == "series":
+        traiter(cfg)
 
-    if cfg.action == "jmmzipper":
-        sextupler_jmm(cfg)
-        return 0
-    if cfg.action == "tdtzipper":
-        sextupler_tdt(cfg)
-        return 0
-    if cfg.action == "full":
-        sextupler_full(cfg)
-        return 0
-
-    if cfg.action == "zipper":
-        with zipfile.ZipFile(cfg.zip, 'r') as monzip:
-            fichiers = sorted([basename(f) for f in monzip.namelist()])
-            pfxrep = [dirname(f) for f in monzip.namelist()][0]
-            print(pfxrep)
-            monzip.extractall(path=cfg.dirout)
-            print(
-                "contenu du répertoire:",
-                sorted(os.listdir(join(cfg.dirout, pfxrep)))
-            )
-            fichiers = sorted(os.listdir(join(cfg.dirout, pfxrep)))[-4:]
-            print(fichiers)
-            print(f"u1={fichiers[0]} v1={fichiers[1]} u0={fichiers[2]}  v0={fichiers[3]}")
-            imu0 = iio.read(join(cfg.dirout, pfxrep, fichiers[2]))
-            imv0 = iio.read(join(cfg.dirout, pfxrep, fichiers[3]))
-            imu1 = iio.read(join(cfg.dirout, pfxrep, fichiers[0]))
-            imv1 = iio.read(join(cfg.dirout, pfxrep, fichiers[1]))
-
-    for img, name in zip([imu0, imv0, imu1, imv1],
-                         ["imu0.png", "imv0.png", "imu1.png", "imv1.png"]):
-        img_normalized = normalize_image(img, sat=0.05)
-        iio.write(join(cfg.dirout, name), img_normalized)
-
-    imu0 = convert_to_gray_image(cfg, imu0)
-    imv0 = convert_to_gray_image(cfg, imv0)
-    imu1 = convert_to_gray_image(cfg, imu1)
-    imv1 = convert_to_gray_image(cfg, imv1)
-
-    imu0 = perturbate_image(imu0)
-    imv0 = perturbate_image(imv0)
-    imu1 = perturbate_image(imu1)
-    imv1 = perturbate_image(imv1)
-
-    epsilon = 1.0
-    phi, angle0, angle1 = compute_change(imu0, imv0, imu1, imv1, cfg)
-    nfa1 = imu0.shape[0] * imu0.shape[1] * phi
-    mappe1 = 255 * np.array(nfa1 < epsilon, dtype=np.uint8)
-
-    jet = convert_to_rainbow_image(phi)
-    for img, name in zip(
-            [angle0, angle1, phi, jet, mappe1],
-            ["angle_u0_v0.tif", "angle_u1_v1.tif", "phi1.tif",
-             "jet1.png", "map1.png"]):
-        iio.write(join(cfg.dirout, name), img)
-
-    #iio.write(join(cfg.dirout, "uni0.tif"), uni0)
-    #iio.write(join(cfg.dirout, "uni1.tif"), uni1)
-
-#    iio.write(join(cfg.dirout, "angle_u0_v0.tif"), angle0)
-#    iio.write(join(cfg.dirout, "angle_u1_v1.tif"), angle1)
-#
-#    iio.write(join(cfg.dirout, "phi1.tif"), phi)
-#    iio.write(join(cfg.dirout, "jet1.png"), jet)
-#
-#    iio.write(join(cfg.dirout, "map1.png"), mappe1)
-
-    phi, angle0, angle1 = compute_change(imv1, imv0, imu1, imu0, cfg)
-    nfa2 = imu0.shape[0] * imu0.shape[1] * phi
-    mappe2 = 255 * np.array(nfa2 < epsilon, dtype=np.uint8)
-
-    jet = convert_to_rainbow_image(phi)
-    for img, name in zip(
-            [angle0, angle1, phi, jet, mappe2],
-            ["angle_v1_v0.tif", "angle_u1_v0.tif", "phi2.tif",
-             "jet2.png", "map2.png"]):
-        iio.write(join(cfg.dirout, name), img)
-#    iio.write(join(cfg.dirout, "angle_v1_v0.tif"), angle0)
-#    iio.write(join(cfg.dirout, "angle_u1_v0.tif"), angle1)
-#    iio.write(join(cfg.dirout, "phi2.tif"), phi)
-#    iio.write(join(cfg.dirout, "jet2.png"), jet)
-#    iio.write(join(cfg.dirout, "map2.png"), mappe2)
-
-
-    mappe = 255 * np.array(mappe1 / 255 * mappe2 / 255, dtype=np.uint8)
-    print(np.max(mappe), np.max(mappe1), np.max(mappe2), mappe.dtype)
-    iio.write(join(cfg.dirout, "map.png"), mappe)
-
-    mappe3 = 255 * np.array((nfa1 + nfa2)/2.0 < epsilon, dtype=np.uint8)
-    iio.write(join(cfg.dirout, "map_avgnfa.png"), mappe3)
     return 0
 
 
 if __name__ == "__main__":
     execution_time = timeit.timeit(main, number=1)
     print(f"Execution time: {execution_time:.6f} seconds")
-
-# python main.py --u0
-# for c in 0 1 2; do for i in 03 05 07 09 11; do python main.py --u0 santjordi/2018-07-12_S2B# _orbit_008_tile_31TDF_L1C_band_RGBI.tif --v0 santjordi/2019-01-03_S2A_orbit_008_tile_31TDF_# L1C_band_RGBI.tif --u1 santjordi/2017-07-12_S2A_orbit_008_tile_31TDF_L1C_band_RGBI.tif --v1#santjordi/2018-01-18_S2A_orbit_008_tile_31TDF_L1C_band_RGBI.tif --b $i --dirout vois_${i}_# channel_${c} --channel $c & done; done
-
-#python ../../developpement/pluribus/main.py full --zip ../../images/sextuplet_santjordi.zip --epsilon 100 --b 7 --feature magnitude --dirout full_pluribus_sextuplet_santjordi_7_eps100_mag
-
-#comfor f in $LST;
-#comdo
-#comrep=$(basename $f);
-#comrep=${rep/.zip};
-#comecho python ../../developpement/pluribus/main.py full --zip $f --epsilon 1 --b 7 --dirout full_pluribus_${rep}_7_eps1_angle;
-#comdone;
-#com
