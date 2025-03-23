@@ -212,59 +212,39 @@ def compute_theta(img1, img2):
     return cosin
     
 
-def compute_change(imsu_n, imsv_n, cfg):
+def compute_change(angle0, angle1, b):
     """
     Parameters
     ----------
-    imsu_n : list of np.array ndim=(nrow, ncol)
-        List of reference images.
-    imsv_n : liste of np.array ndim=(nrow, ncol)
-        List of compared images.
+    theta0 : 
+        The image to test.
+    theta1 :
+        The image of reference.
     b : int
         Side of the square neighborhood of x.
     """
+    nrow, ncol = angle0.shape
+    h_b = b // 2
 
-    # random permutations
-    mat = np.empty((cfg.b * cfg.b * npairs, ndrop), dtype=np.int8)
-
-    for i in np.arange(ndrop):
-        a = np.arange(cfg.b * cfg.b * npairs)
-        np.random.shuffle(a)
-        mat = np.concatenate((mat, a), axis=1)
-
-    # only the first lines
-    mat = mat[:cfg.b*cfg.b,:]
-    # computes the angular difference
-    for imu_n, imv_n in zip(imsu_n, imsv_n):
-        angle, _ = angular(cfg, imsu_n, imsv_n, with_mag=True)
-        angle_n += [angle]
-
-    nrow, ncol = imsu_n[0].shape
-    h_b = cfg.b // 2
-
-    angle_0 = angle_n[-1]
-    angle_n = np.concatenate(angle_n[0:-2], axis=0)
     # initialization
-    phi = np.nan * np.ones((nrow, ncol, ndrop))
+    pval = np.nan * np.ones((nrow, ncol, 1))
     # computation per pixel
     for x_i in np.arange(nrow):
+#        print(x_i)
         for x_j in np.arange(ncol):
             # limits tests
             if (x_i-h_b < 0 or nrow <= x_i+h_b
                 or x_j-h_b < 0 or ncol <= x_j+h_b):
                 continue
             # neighborhood of x
-            tile0 = angle_0[x_i-h_b:x_i+h_b+1, x_j-h_b:x_j+h_b+1].flatten()
-            tile_n = angle_n[x_i-h_b:x_i+h_b+1, x_j-h_b:x_j+h_b+1, :].flatten()
+            tile0 = angle0[x_i-h_b:x_i+h_b+1, x_j-h_b:x_j+h_b+1].flatten()
+            tile1 = angle1[x_i-h_b:x_i+h_b+1, x_j-h_b:x_j+h_b+1].flatten()
+                
+            _, _, pvalue = kolmogorov_smirnov(tile1, tile0)
 
-            for i in np.arange(ndrop):
-                tilen = tile_n[mat[:, i]]
-            _, _, pvalue = kolmogorov_smirnov(tilen, tile0)
-
-#            print(pvalue)
-            phi[x_i, x_j, 0] = pvalue
-    phi = handle_boundaries(phi)
-    return phi, angle0, angle1 #, uni0, uni1
+            pval[x_i, x_j, 0] = pvalue
+    pval = handle_boundaries(pval)
+    return pval, angle0, angle1 
 
 
 def convert_to_gray_image(cfg, img):
