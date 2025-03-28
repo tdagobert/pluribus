@@ -56,6 +56,7 @@ import iio
 
 
 #@njit
+#@njit(nopython=False)
 def kolmogorov_smirnov(data1, data2):
     """
     ...
@@ -81,7 +82,7 @@ def kolmogorov_smirnov(data1, data2):
     cdf1 = cwei1[np.searchsorted(data1, data_all, side='right')]
     cdf2 = cwei2[np.searchsorted(data2, data_all, side='right')]
 
-    print("maxi cdf1", np.max(cdf1))
+#    print("maxi cdf1", np.max(cdf1))
     cddiffs = cdf1 - cdf2
     diff = np.max(cddiffs)
 
@@ -101,7 +102,7 @@ def kolmogorov_smirnov(data1, data2):
     return True, diff, prob
 
 
-@njit
+#@njit
 def handle_boundaries(img):
     """
     Replacement of NaN values located on the edges,
@@ -187,7 +188,9 @@ def handle_boundaries(img):
 #
 #@njit
 #@jit(nopython=False)
-def compute_theta(img1, img2):
+def compute_theta(im1, im2):
+    return np.abs(im1 - im2)
+def compute_phi(im1, im2):
     """
     ...
     """
@@ -209,10 +212,11 @@ def compute_theta(img1, img2):
         prodsca / (norm(grad_im1, axis=2)*norm(grad_im2, axis=2))
     )
     cosine[np.isnan(cosine)] = 0.0
-    return cosin
-    
+    return cosine
 
-def compute_change(angle0, angle1, b):
+#@njit
+#@jit(nopython=False)
+def compute_map(angle0, angle1, b, epsilon):
     """
     Parameters
     ----------
@@ -244,7 +248,11 @@ def compute_change(angle0, angle1, b):
 
             pval[x_i, x_j, 0] = pvalue
     pval = handle_boundaries(pval)
-    return pval, angle0, angle1 
+    pval = pval.squeeze()
+    nfa = nrow * ncol * pval
+    mappe_v = np.array(nfa < epsilon, dtype=np.uint8)
+    return mappe_v
+#    return pval, angle0, angle1 
 
 
 def convert_to_gray_image(cfg, img):
@@ -386,58 +394,92 @@ def traiter(cfg):
     with zipfile.ZipFile(cfg.zip, 'r') as monzip:
         fichiers = sorted([basename(f) for f in monzip.namelist()])
         pfxrep = [dirname(f) for f in monzip.namelist()][0]
-        print(pfxrep)
+        print("prefixe", pfxrep)
         monzip.extractall(path=cfg.dirout)
-        print(sorted(os.listdir(join(cfg.dirout, pfxrep)))
-    )
-    files = sorted(os.listdir(join(cfg.dirout, pfxrep)))[:]
+#        print(sorted(os.listdir(join(cfg.dirout, pfxrep))))
+    files = sorted(os.listdir(join(cfg.dirout, pfxrep)))
+    files = [join(cfg.dirout, fic) for fic in files]
+    
     # (u_n)
     files_u_n = files[0::2]
     files_v_n = files[1::2]
-
+    print(files_u_n)
+    print(files_v_n)
+#    imu_n = []
+#    for u_n in files_u_n:
+#        print(f"image={u_n}")
+#        a = iio.read(u_n)
+#        imu_n += [convert_to_gray_image(cfg, a)]
     imu_n = [convert_to_gray_image(cfg, iio.read(u_n)) for u_n in files_u_n]
     imv_n = [convert_to_gray_image(cfg, iio.read(v_n)) for v_n in files_v_n]
     imu_0, imu_1 = imu_n[-1], imu_n[-2]
     imv_0, imv_1 = imv_n[-1], imv_n[-2]
-    imu_n = imu_n[:-2]
-    imv_n = imv_n[:-2]
+    imu_n = imu_n[:-1]
+    imv_n = imv_n[:-1]
     theta_u1_u0 = compute_theta(imu_0, imu_1)
     theta_v1_v0 = compute_theta(imv_0, imv_1)
     # strategy 1
 
     # strategy 2
+    print(f"{len(imu_n)} {len(imv_n)}")
+    assert len(imu_n) == len(imv_n)
     nb = 0
-    avg_map = np.zeros((nlig, ncol), dtype=np.float)
-    for i in range(len(imu_n) - 1):
-        for j in range(i+1, len(imu_n)):
-            nb += 1
-            theta_ui_uj = compute_theta(imu_n[i], imu_n[j])
-            theta_vi_vj = compute_theta(imv_n[i], imv_n[j])
-            # compute Boolean map
-            map_u = compute_map(cfg, theta_u1_u0, theta_ui_uj)
-            map_v = compute_map(cfg, theta_v1_v0, theta_vi_vj)
-            # difference
-            map_d = map_v - map_u * map_v
-            avg_map += map_d
-    avg_map /= nb
-
-    # strategy 4
+    nlig, ncol = imu_1.shape
+#com    avg_map = np.zeros((nlig, ncol))#, dtype=np.float64)
+#com    for i in range(len(imu_n) - 1):
+#com        for j in range(i+1, len(imu_n)):
+#com            nb += 1
+#com            print(f"paire u {files_u_n[i]} {files_u_n[j]}")
+#com            theta_ui_uj = compute_theta(imu_n[i], imu_n[j])
+#com            print(f"paire v {files_v_n[i]} {files_v_n[j]}")
+#com            theta_vi_vj = compute_theta(imv_n[i], imv_n[j])
+#com            # compute Boolean map
+#com            map_u = compute_map(theta_u1_u0, theta_ui_uj, cfg.b, cfg.epsilon)
+#com            map_v = compute_map(theta_v1_v0, theta_vi_vj, cfg.b, cfg.epsilon)
+#com            # difference
+#com            map_d = map_v - map_u * map_v
+#com            avg_map += map_d
+#com    avg_map /= nb
+#com    iio.write(join(cfg.dirout, "avg_map_strat2.tif"), 255 * avg_map)
+#com
+#com    # strategy 4
+#com    nb = 0
+#com    avg_map = np.zeros((nlig, ncol))#, dtype=np.float)
+#com    theta_u0_v0 = compute_theta(imu_0, imv_0)
+#com    for i in range(len(imu_n)):
+#com        for j in range(i, len(imu_n)):
+#com            print(f"paire u, v {files_u_n[i]} {files_v_n[j]}")
+#com            nb += 1
+#com            theta_ui_vj = compute_theta(imu_n[i], imv_n[j])
+#com            # compute Boolean map
+#com            mappe = compute_map(theta_u0_v0, theta_ui_vj, cfg.b, cfg.epsilon)
+#com            avg_map += mappe
+#com    avg_map /= nb
+#com    iio.write(join(cfg.dirout, "avg_map_strat4.tif"), 255 * avg_map)
+#com
+    # strategy 5
     nb = 0
-    avg_map = np.zeros((nlig, ncol), dtype=np.float)
+    avg_map = np.zeros((nlig, ncol))#, dtype=np.float)
+    theta_u0_v0 = compute_theta(imu_0, imv_0)
     for i in range(len(imu_n)):
-        for j in range(i, len(imu_n)):
+        for j in range(len(imu_n)):
+            print(f"paire u, v {files_u_n[i]} {files_v_n[j]}")
             nb += 1
             theta_ui_vj = compute_theta(imu_n[i], imv_n[j])
             # compute Boolean map
-            mappe = compute_map(cfg, theta_u0_v0, theta_ui_vj)
+            mappe = compute_map(theta_u0_v0, theta_ui_vj, cfg.b, cfg.epsilon)
             avg_map += mappe
     avg_map /= nb
+    iio.write(join(cfg.dirout, "avg_map_strat5.tif"), 255 * avg_map)
+
+    return
 
 def main():
     """
     ...
     """
     cfg = load_parameters()
+    print(cfg)
     if not exists(cfg.dirout):
         os.mkdir(cfg.dirout)
 
