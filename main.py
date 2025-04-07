@@ -317,10 +317,14 @@ def load_images(cfg):
     im_n = []
     for u_n in files:
         print(f"{u_n}")
-        im_n += [normalize_image(iio.read(join(cfg.dirout,u_n)), sat=0.01)]
+        im_n += [normalize_image(iio.read(join(cfg.dirout, u_n)), sat=0.01)]
     for i, u_n in enumerate(im_n):
         iio.write(join(cfg.dirout, f"input_{i}.png"), u_n)
-    
+
+    iio.write(join(cfg.dirout, f"u_0.png"),
+              normalize_image(iio.read(join(cfg.dirout, files[-2])), sat=0.01))
+    iio.write(join(cfg.dirout, f"v_0.png"),
+              normalize_image(iio.read(join(cfg.dirout, files[-1])), sat=0.01))
     imu_n = [saturate_image(
         convert_to_gray_image(cfg, iio.read(join(cfg.dirout,u_n)))
     ) for u_n in files_u_n]
