@@ -50,211 +50,10 @@ from scipy import stats
 
 from matplotlib import cm
 import matplotlib.pyplot as plt
+
 from numba import njit
 #import imageio as iio
 import iio
-
-
-#@njit
-#@njit(nopython=False)
-def kolmogorov_smirnov(data1, data2):
-    """
-    ...
-    """
-    data1 = np.sort(data1)
-    data2 = np.sort(data2)
-    assert data1.shape[0] == data2.shape[0]
-    n_1 = data1.shape[0]
-
-    if min(n_1, n_1) == 0:
-        raise ValueError('Data passed to ks_2samp must not be empty')
-
-    data_all = np.zeros(n_1 + n_1)
-    data_all[0:n_1] = data1[:]
-    data_all[n_1:] = data2[:]
-
-    weight1 = np.ones(data1.shape).squeeze()
-    weight2 = np.ones(data1.shape).squeeze()
-    cwei1 = np.zeros(weight1.size + 1)
-    cwei1[1: ] = np.cumsum(weight1) / np.sum(weight1)
-    cwei2 = np.zeros(weight2.size + 1)
-    cwei2[1: ] = np.cumsum(weight2) / np.sum(weight2)
-    cdf1 = cwei1[np.searchsorted(data1, data_all, side='right')]
-    cdf2 = cwei2[np.searchsorted(data2, data_all, side='right')]
-
-#    print("maxi cdf1", np.max(cdf1))
-    cddiffs = cdf1 - cdf2
-    diff = np.max(cddiffs)
-
-    valg = gcd(n_1, n_1)
-    prob = -np.inf
-
-    lcm = (n_1 // valg) * n_1
-    valh = int(np.round(diff * lcm))
-    diff = valh * 1.0 / lcm
-    if valh == 0:
-        return True, diff, 1.0
-    # prob = binom(2n, n-h) / binom(2n, n)
-    # Evaluating in that form incurs roundoff errors
-    # from special.binom. Instead calculate directly
-    jrange = np.arange(valh)
-    prob = np.prod((n_1 - jrange) / (n_1 + jrange + 1.0))
-    return True, diff, prob
-
-
-#@njit
-def handle_boundaries(img):
-    """
-    Replacement of NaN values located on the edges,
-    by the values located on the boundaries.
-    Parameters
-    ----------
-    img : np.array ndim=(nrow, ncol, ncan)
-    """
-    nrow, ncol, ncan = img.shape
-    for k in np.arange(ncan):
-        # replacement of columns
-        for i in np.arange(nrow):
-            j = 0
-            while j < ncol and np.isnan(img[i, j, k]):
-                j += 1
-            # entire line is NaN
-            if j == ncol:
-                continue
-            # replacement of left columns
-            img[i, 0:j, k] = img[i, j, k]
-
-            while not np.isnan(img[i, j, k]):
-                j += 1
-            # replacement of right columns
-            img[i, j:ncol, k] = img[i, j-1, k]
-
-        # replacement of lines
-        for j in np.arange(ncol):
-            i = 0
-            while i < nrow and np.isnan(img[i, j, k]):
-                i += 1
-            # entire column is NaN
-            if i == nrow:
-                continue
-            # replacement of top lines
-            img[0:i, j, k] = img[i, j, k]
-
-            while not np.isnan(img[i, j, k]):
-                i += 1
-            # replacement of right colums
-            img[i:nrow, j, k] = img[i-1, j, k]
-
-    return img
-
-
-#@njit
-#@jit(nopython=False)
-#def angular(cfg, im1, im2, with_mag=False):
-#    """
-#    Angular differences between the pixels of both images.
-#    """
-#    gh_im1 = ndimage.sobel(im1, 0)  # horizontal gradient
-#    gv_im1 = ndimage.sobel(im1, 1)  # vertical gradient
-#    grad_im1 = np.stack((gh_im1, gv_im1), axis=-1)
-#
-#    gh_im2 = ndimage.sobel(im2, 0)  # horizontal gradient
-#    gv_im2 = ndimage.sobel(im2, 1)  # vertical gradient
-#    grad_im2 = np.stack((gh_im2, gv_im2), axis=-1)
-#    magnitude = None
-#    if with_mag:
-#        magnitude = norm(grad_im1, axis=2) + norm(grad_im2, axis=2)
-#
-#    if cfg.feature == "magnitude":
-#        magnitude = np.sqrt(gh_im1**2 + gv_im1**2)
-#        iio.write(os.path.join(cfg.dirout, "magnitude.tif"), magnitude)
-#        return magnitude
-#    print(gh_im1.shape, grad_im1.shape)
-#
-##    w = np.tensordot(grad_im1, grad_im2, axes=(2))
-##    print(w.shape)
-##    exit()
-#
-#    prodsca = (
-#        grad_im1[:,:,0] * grad_im2[:,:,0] + grad_im1[:,:,1] * grad_im2[:,:,1]
-#    )
-#    cosine = np.arccos(
-#        prodsca / (norm(grad_im1, axis=2)*norm(grad_im2, axis=2))
-#    )
-##    cosine = prodsca
-#    cosine[np.isnan(cosine)] = 0.0
-#    print(cosine.shape)
-#    return cosine, magnitude
-#
-#@njit
-#@jit(nopython=False)
-def compute_theta(im1, im2):
-    return np.abs(im1 - im2)
-def compute_phi(im1, im2):
-    """
-    ...
-    """
-    """
-    Angular differences between the pixels of both images.
-    """
-    gh_im1 = ndimage.sobel(im1, 0)  # horizontal gradient
-    gv_im1 = ndimage.sobel(im1, 1)  # vertical gradient
-    grad_im1 = np.stack((gh_im1, gv_im1), axis=-1)
-
-    gh_im2 = ndimage.sobel(im2, 0)  # horizontal gradient
-    gv_im2 = ndimage.sobel(im2, 1)  # vertical gradient
-    grad_im2 = np.stack((gh_im2, gv_im2), axis=-1)
-
-    prodsca = (
-        grad_im1[:,:,0] * grad_im2[:,:,0] + grad_im1[:,:,1] * grad_im2[:,:,1]
-    )
-    cosine = np.arccos(
-        prodsca / (norm(grad_im1, axis=2)*norm(grad_im2, axis=2))
-    )
-    cosine[np.isnan(cosine)] = 0.0
-    return cosine
-
-#@njit
-#@jit(nopython=False)
-def compute_map(angle0, angle1, b, epsilon):
-    """
-    Parameters
-    ----------
-    theta0 : 
-        The image to test.
-    theta1 :
-        The image of reference.
-    b : int
-        Side of the square neighborhood of x.
-    """
-    nrow, ncol = angle0.shape
-    h_b = b // 2
-
-    # initialization
-    pval = np.nan * np.ones((nrow, ncol, 1))
-    # computation per pixel
-    for x_i in np.arange(nrow):
-#        print(x_i)
-        for x_j in np.arange(ncol):
-            # limits tests
-            if (x_i-h_b < 0 or nrow <= x_i+h_b
-                or x_j-h_b < 0 or ncol <= x_j+h_b):
-                continue
-            # neighborhood of x
-            tile0 = angle0[x_i-h_b:x_i+h_b+1, x_j-h_b:x_j+h_b+1].flatten()
-            tile1 = angle1[x_i-h_b:x_i+h_b+1, x_j-h_b:x_j+h_b+1].flatten()
-                
-            _, _, pvalue = kolmogorov_smirnov(tile1, tile0)
-
-            pval[x_i, x_j, 0] = pvalue
-    pval = handle_boundaries(pval)
-    pval = pval.squeeze()
-    nfa = nrow * ncol * pval
-    mappe_v = np.array(nfa < epsilon, dtype=np.uint8)
-    return mappe_v
-#    return pval, angle0, angle1 
-
-
 def convert_to_gray_image(cfg, img):
     """
     Convert an RGB image into a gray level one. If the image contains 4
@@ -318,6 +117,13 @@ def perturbate_image(img):
     img = img + 1e-10 * noise
     return img
 
+def saturate_image(img, sat=0.000):
+    
+    val = np.sort(img.flatten())
+    maxi = val[int((1-sat)*val.size)-1]
+    print(int((1-sat)*val.size), maxi)
+    img[img > maxi] = maxi
+    return img
 
 def load_images(cfg):
     """
@@ -387,6 +193,312 @@ def load_parameters():
     return cfg
 
 
+@njit
+#@njit(nopython=False)
+def kolmogorov_smirnov(data1, data2):
+    """
+    ...
+    """
+    data1 = np.sort(data1)
+    data2 = np.sort(data2)
+    assert data1.shape[0] == data2.shape[0]
+    n_1 = data1.shape[0]
+
+    if min(n_1, n_1) == 0:
+        raise ValueError('Data passed to ks_2samp must not be empty')
+
+    data_all = np.zeros(n_1 + n_1)
+    data_all[0:n_1] = data1[:]
+    data_all[n_1:] = data2[:]
+
+    weight1 = np.ones(data1.shape)
+    weight2 = np.ones(data1.shape)
+    cwei1 = np.zeros(weight1.size + 1)
+    cwei1[1: ] = np.cumsum(weight1) / np.sum(weight1)
+    cwei2 = np.zeros(weight2.size + 1)
+    cwei2[1: ] = np.cumsum(weight2) / np.sum(weight2)
+    cdf1 = cwei1[np.searchsorted(data1, data_all, side='right')]
+    cdf2 = cwei2[np.searchsorted(data2, data_all, side='right')]
+
+#    print("maxi cdf1", np.max(cdf1))
+    cddiffs = cdf1 - cdf2
+    diff = np.max(cddiffs)
+
+    valg = gcd(n_1, n_1)
+    prob = -np.inf
+
+    lcm = (n_1 // valg) * n_1
+    valh = int(np.round(diff * lcm))
+    diff = valh * 1.0 / lcm
+    if valh == 0:
+        return True, diff, 1.0
+    # prob = binom(2n, n-h) / binom(2n, n)
+    # Evaluating in that form incurs roundoff errors
+    # from special.binom. Instead calculate directly
+    jrange = np.arange(valh)
+    prob = np.prod((n_1 - jrange) / (n_1 + jrange + 1.0))
+    return True, diff, prob
+
+
+@njit
+def handle_boundaries(img):
+    """
+    Replacement of NaN values located on the edges,
+    by the values located on the boundaries.
+    Parameters
+    ----------
+    img : np.array ndim=(nrow, ncol, ncan)
+    """
+    nrow, ncol = img.shape
+    ncan = 1
+    for k in np.arange(ncan):
+        # replacement of columns
+        for i in np.arange(nrow):
+            j = 0
+            while j < ncol and np.isnan(img[i, j]):
+                j += 1
+            # entire line is NaN
+            if j == ncol:
+                continue
+            # replacement of left columns
+            img[i, 0:j] = img[i, j]
+
+            while not np.isnan(img[i, j]):
+                j += 1
+            # replacement of right columns
+            img[i, j:ncol] = img[i, j-1]
+
+        # replacement of lines
+        for j in np.arange(ncol):
+            i = 0
+            while i < nrow and np.isnan(img[i, j]):
+                i += 1
+            # entire column is NaN
+            if i == nrow:
+                continue
+            # replacement of top lines
+            img[0:i, j] = img[i, j]
+
+            while not np.isnan(img[i, j]):
+                i += 1
+            # replacement of right colums
+            img[i:nrow, j] = img[i-1, j]
+
+    return img
+
+
+#@njit
+#@jit(nopython=False)
+#def angular(cfg, im1, im2, with_mag=False):
+#    """
+#    Angular differences between the pixels of both images.
+#    """
+#    gh_im1 = ndimage.sobel(im1, 0)  # horizontal gradient
+#    gv_im1 = ndimage.sobel(im1, 1)  # vertical gradient
+#    grad_im1 = np.stack((gh_im1, gv_im1), axis=-1)
+#
+#    gh_im2 = ndimage.sobel(im2, 0)  # horizontal gradient
+#    gv_im2 = ndimage.sobel(im2, 1)  # vertical gradient
+#    grad_im2 = np.stack((gh_im2, gv_im2), axis=-1)
+#    magnitude = None
+#    if with_mag:
+#        magnitude = norm(grad_im1, axis=2) + norm(grad_im2, axis=2)
+#
+#    if cfg.feature == "magnitude":
+#        magnitude = np.sqrt(gh_im1**2 + gv_im1**2)
+#        iio.write(os.path.join(cfg.dirout, "magnitude.tif"), magnitude)
+#        return magnitude
+#    print(gh_im1.shape, grad_im1.shape)
+#
+##    w = np.tensordot(grad_im1, grad_im2, axes=(2))
+##    print(w.shape)
+##    exit()
+#
+#    prodsca = (
+#        grad_im1[:,:,0] * grad_im2[:,:,0] + grad_im1[:,:,1] * grad_im2[:,:,1]
+#    )
+#    cosine = np.arccos(
+#        prodsca / (norm(grad_im1, axis=2)*norm(grad_im2, axis=2))
+#    )
+##    cosine = prodsca
+#    cosine[np.isnan(cosine)] = 0.0
+#    print(cosine.shape)
+#    return cosine, magnitude
+#
+#@njit
+#@jit(nopython=False)
+def compute_phi(im1, im2):
+    """
+    ...
+    """
+    return np.abs(im1 - im2)
+
+def compute_omega(im1, im2):
+    """
+    Module
+    """
+    """
+    Angular differences between the pixels of both images.
+    """
+    img = im1 - im2
+    gh_img = ndimage.sobel(img, 0)  # horizontal gradient
+    gv_img = ndimage.sobel(img, 1)  # vertical gradient
+    grad_img = np.stack((gh_img, gv_img), axis=-1)
+
+    module = norm(grad_img, axis=2)
+    return module
+
+def compute_khi(im1, im2):
+    """
+    ...
+    """
+    """
+    Angular differences between the pixels of both images.
+    """
+    gh_im1 = ndimage.sobel(im1, 0)  # horizontal gradient
+    gv_im1 = ndimage.sobel(im1, 1)  # vertical gradient
+    grad_im1 = np.stack((gh_im1, gv_im1), axis=-1)
+
+    gh_im2 = ndimage.sobel(im2, 0)  # horizontal gradient
+    gv_im2 = ndimage.sobel(im2, 1)  # vertical gradient
+    grad_im2 = np.stack((gh_im2, gv_im2), axis=-1)
+
+    prodsca = (
+        grad_im1[:,:,0] * grad_im2[:,:,0] + grad_im1[:,:,1] * grad_im2[:,:,1]
+    )
+    cosine = np.arccos(
+        prodsca / (norm(grad_im1, axis=2)*norm(grad_im2, axis=2))
+    )
+    cosine[np.isnan(cosine)] = 0.0
+    return cosine
+
+
+@njit
+def compute_theta(imu, imv, half_l):
+    """
+    Parameters
+    ----------
+    imu : np.array ndim=(nrow, ncol)
+        Reference image.
+    imv : np.array ndim=(nrow, ncol)
+        Compared image.
+    half_l : int
+        Half side of the square patch.
+    """
+
+    nrow, ncol = imu.shape
+
+    # initialization
+    phi_uvl = np.nan * np.ones((nrow, ncol))
+
+    # computation per pixel
+    for x_i in np.arange(nrow):
+        for x_j in np.arange(ncol):
+            # limits tests
+            if (x_i - half_l < 0 or nrow <= x_i + half_l
+                or x_j - half_l < 0 or ncol <= x_j + half_l):
+                continue
+
+            # neighborhood of x
+            tilu = imu[x_i-half_l:x_i+half_l+1, x_j-half_l:x_j+half_l+1]
+            y_i = x_i
+            y_j = x_j
+
+            # limits tests
+            if (y_i - half_l < 0 or nrow <= y_i + half_l
+                or y_j - half_l < 0 or ncol <= y_j + half_l):
+                continue
+
+            # neighborhood of y
+            tilv = imv[y_i-half_l:y_i+half_l+1, y_j-half_l:y_j+half_l+1]
+
+            # calcul de la distance
+            suu = np.sum(tilu*tilu)
+            svv = np.sum(tilv*tilv)
+            phi_uvl[x_i, x_j] = (
+                max(suu, svv) * (1 - np.sum(tilu * tilv)**2 / (suu * svv))
+            )
+
+    phi_uvl = handle_boundaries(phi_uvl)
+    return phi_uvl
+
+
+@njit
+def compute_map(angle0, angle1, b):
+    """
+    Parameters
+    ----------
+    theta0 :
+        The image to test.
+    theta1 :
+        The image of reference.
+    b : int
+        Side of the square neighborhood of x.
+    """
+    nrow, ncol = angle0.shape
+    h_b = b // 2
+
+    # initialization
+    pval = np.nan * np.ones((nrow, ncol))
+    # computation per pixel
+    for x_i in np.arange(nrow):
+        for x_j in np.arange(ncol):
+            # limits tests
+            if (x_i-h_b < 0 or nrow <= x_i+h_b
+                or x_j-h_b < 0 or ncol <= x_j+h_b):
+                continue
+            # neighborhood of x
+            tile0 = angle0[x_i-h_b:x_i+h_b+1, x_j-h_b:x_j+h_b+1].flatten()
+            tile1 = angle1[x_i-h_b:x_i+h_b+1, x_j-h_b:x_j+h_b+1].flatten()
+            _, _, pvalue = kolmogorov_smirnov(tile1, tile0)
+
+            pval[x_i, x_j] = pvalue
+    pval = handle_boundaries(pval)
+
+    return pval
+
+
+#@njit
+# comdef compute_map2(angle0, angle1, b, epsilon):
+# com    """
+# com    Parameters
+# com    ----------
+# com    theta0 :
+# com        The image to test.
+# com    theta1 :
+# com        The image of reference.
+# com    b : int
+# com        Side of the square neighborhood of x.
+# com    """
+# com    nrow, ncol = angle0.shape
+# com    h_b = b // 2
+# com
+# com    # initialization
+# com    pval = np.nan * np.ones((nrow, ncol))
+# com    # computation per pixel
+# com    for x_i in np.arange(nrow):
+# com#        print(x_i)
+# com        for x_j in np.arange(ncol):
+# com            # limits tests
+# com            if (x_i-h_b < 0 or nrow <= x_i+h_b
+# com                or x_j-h_b < 0 or ncol <= x_j+h_b):
+# com                continue
+# com            # neighborhood of x
+# com            tile0 = angle0[x_i-h_b:x_i+h_b+1, x_j-h_b:x_j+h_b+1].flatten()
+# com            tile1 = angle1[x_i-h_b:x_i+h_b+1, x_j-h_b:x_j+h_b+1].flatten()
+# com
+# com#            _, pvalue = stats.ks_2samp(tile1, tile0)
+# com            _, _, pvalue = kolmogorov_smirnov(tile1, tile0)
+# com
+# com            pval[x_i, x_j] = pvalue
+# com    pval = handle_boundaries(pval)
+# com    nfa = nrow * ncol * pval
+# com    mappe_v = 1 * nfa < epsilon
+# com#    mappe_v = np.uint8(mappe_v)
+# com    return mappe_v
+# com#    return pval, angle0, angle1
+
+
 def traiter(cfg):
     """
     ...
@@ -399,7 +511,7 @@ def traiter(cfg):
 #        print(sorted(os.listdir(join(cfg.dirout, pfxrep))))
     files = sorted(os.listdir(join(cfg.dirout, pfxrep)))
     files = [join(cfg.dirout, fic) for fic in files]
-    
+
     # (u_n)
     files_u_n = files[0::2]
     files_v_n = files[1::2]
@@ -410,14 +522,14 @@ def traiter(cfg):
 #        print(f"image={u_n}")
 #        a = iio.read(u_n)
 #        imu_n += [convert_to_gray_image(cfg, a)]
-    imu_n = [convert_to_gray_image(cfg, iio.read(u_n)) for u_n in files_u_n]
-    imv_n = [convert_to_gray_image(cfg, iio.read(v_n)) for v_n in files_v_n]
+    imu_n = [saturate_image(convert_to_gray_image(cfg, iio.read(u_n))) for u_n in files_u_n]
+    imv_n = [saturate_image(convert_to_gray_image(cfg, iio.read(v_n))) for v_n in files_v_n]
     imu_0, imu_1 = imu_n[-1], imu_n[-2]
     imv_0, imv_1 = imv_n[-1], imv_n[-2]
     imu_n = imu_n[:-1]
     imv_n = imv_n[:-1]
-    theta_u1_u0 = compute_theta(imu_0, imu_1)
-    theta_v1_v0 = compute_theta(imv_0, imv_1)
+#com    theta_u1_u0 = compute_theta(imu_0, imu_1)
+#com    theta_v1_v0 = compute_theta(imv_0, imv_1)
     # strategy 1
 
     # strategy 2
@@ -460,17 +572,27 @@ def traiter(cfg):
     # strategy 5
     nb = 0
     avg_map = np.zeros((nlig, ncol))#, dtype=np.float)
-    theta_u0_v0 = compute_theta(imu_0, imv_0)
+# com    scale = 3
+    #theta_u0_v0 = compute_theta(imu_0, imv_0, scale)
+    theta_u0_v0 = compute_omega(imu_0, imv_0)
+
+    mappes = []
     for i in range(len(imu_n)):
         for j in range(len(imu_n)):
             print(f"paire u, v {files_u_n[i]} {files_v_n[j]}")
             nb += 1
-            theta_ui_vj = compute_theta(imu_n[i], imv_n[j])
+#            theta_ui_vj = compute_theta(imu_n[i], imv_n[j], scale)
+            theta_ui_vj = compute_omega(imu_n[i], imv_n[j])
             # compute Boolean map
-            mappe = compute_map(theta_u0_v0, theta_ui_vj, cfg.b, cfg.epsilon)
-            avg_map += mappe
-    avg_map /= nb
-    iio.write(join(cfg.dirout, "avg_map_strat5.tif"), 255 * avg_map)
+#            mappe = compute_map(theta_u0_v0, theta_ui_vj, cfg.b, cfg.epsilon)
+            mappe = compute_map(theta_u0_v0, theta_ui_vj, cfg.b)
+            mappes += [mappe]
+
+    # computation of the NFA according to the median p-value
+    median = np.stack(mappes, axis=2)
+    median = np.median(median, axis=2)
+    nfa = nlig * ncol * nb * median
+    iio.write(join(cfg.dirout, "median_strat5.tif"), nfa)
 
     return
 
@@ -478,6 +600,7 @@ def main():
     """
     ...
     """
+    print("VERSION 1")
     cfg = load_parameters()
     print(cfg)
     if not exists(cfg.dirout):
