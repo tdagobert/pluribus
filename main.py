@@ -309,7 +309,7 @@ def load_images(cfg):
 #    files = [join(cfg.dirout, fic) for fic in files]
 
     # (u_n)
-    files = [fic for fic in files if "zip" not in fic]
+    files = [fic for fic in files if "tif" in fic]
     files_u_n = files[0::2]
     files_v_n = files[1::2]
     print(files_u_n)
