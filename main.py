@@ -3,7 +3,7 @@
 #
 # BSD 3-Clause License
 #
-# Copyright (c) 2024, Tristan Dagobert  tristan.dagobert@ens-paris-saclay.fr
+# Copyright (c) 2025, Tristan Dagobert  tristan.dagobert@ens-paris-saclay.fr
 #
 # All rights reserved.
 #
@@ -46,7 +46,6 @@ from math import gcd
 import numpy as np
 from numpy.linalg import norm
 from scipy import ndimage
-from scipy import stats
 
 from matplotlib import cm
 import matplotlib.pyplot as plt
@@ -117,41 +116,16 @@ def perturbate_image(img):
     img = img + 1e-10 * noise
     return img
 
+
 def saturate_image(img, sat=0.000):
-    
+    """
+    ...
+    """
     val = np.sort(img.flatten())
     maxi = val[int((1-sat)*val.size)-1]
     print(int((1-sat)*val.size), maxi)
     img[img > maxi] = maxi
     return img
-
-def load_images(cfg):
-    """
-    ...
-    """
-    with zipfile.ZipFile(cfg.zip, 'r') as monzip:
-        fichiers = sorted([basename(f) for f in monzip.namelist()])
-        pfxrep = [dirname(f) for f in monzip.namelist()][0]
-        print(pfxrep)
-        monzip.extractall(path=cfg.dirout)
-        print(
-            "contenu du répertoire:",
-            sorted(os.listdir(join(cfg.dirout, pfxrep)))
-        )
-    fichiers = sorted(os.listdir(join(cfg.dirout, pfxrep)))
-
-    liste_img_brut = [iio.read(join(cfg.dirout, pfxrep, i)) for i in fichiers]
-    for img, name in zip(
-        liste_img_brut,
-        ["imu2.png", "imv2.png", "imu1.png", "imv1.png", "imu0.png", "imv0.png"]
-    ):
-        img_normalized = normalize_image(img, sat=0.005)
-        iio.write(join(cfg.dirout, name), img_normalized)
-
-
-    liste_img_gray = [convert_to_gray_image(cfg, img) for img in liste_img_brut]
-    liste_img = [perturbate_image(img) for img in liste_img_gray]
-    return liste_img
 
 
 def load_parameters():
@@ -194,7 +168,6 @@ def load_parameters():
 
 
 @njit
-#@njit(nopython=False)
 def kolmogorov_smirnov(data1, data2):
     """
     ...
@@ -250,95 +223,45 @@ def handle_boundaries(img):
     img : np.array ndim=(nrow, ncol, ncan)
     """
     nrow, ncol = img.shape
-    ncan = 1
-    for k in np.arange(ncan):
-        # replacement of columns
-        for i in np.arange(nrow):
-            j = 0
-            while j < ncol and np.isnan(img[i, j]):
-                j += 1
-            # entire line is NaN
-            if j == ncol:
-                continue
-            # replacement of left columns
-            img[i, 0:j] = img[i, j]
 
-            while not np.isnan(img[i, j]):
-                j += 1
-            # replacement of right columns
-            img[i, j:ncol] = img[i, j-1]
+    # replacement of columns
+    for i in np.arange(nrow):
+        j = 0
+        while j < ncol and np.isnan(img[i, j]):
+            j += 1
+        # entire line is NaN
+        if j == ncol:
+            continue
+        # replacement of left columns
+        img[i, 0:j] = img[i, j]
 
-        # replacement of lines
-        for j in np.arange(ncol):
-            i = 0
-            while i < nrow and np.isnan(img[i, j]):
-                i += 1
-            # entire column is NaN
-            if i == nrow:
-                continue
-            # replacement of top lines
-            img[0:i, j] = img[i, j]
+        while not np.isnan(img[i, j]):
+            j += 1
+        # replacement of right columns
+        img[i, j:ncol] = img[i, j-1]
 
-            while not np.isnan(img[i, j]):
-                i += 1
-            # replacement of right colums
-            img[i:nrow, j] = img[i-1, j]
+    # replacement of lines
+    for j in np.arange(ncol):
+        i = 0
+        while i < nrow and np.isnan(img[i, j]):
+            i += 1
+        # entire column is NaN
+        if i == nrow:
+            continue
+        # replacement of top lines
+        img[0:i, j] = img[i, j]
+
+        while not np.isnan(img[i, j]):
+            i += 1
+        # replacement of right colums
+        img[i:nrow, j] = img[i-1, j]
 
     return img
 
 
-#@njit
-#@jit(nopython=False)
-#def angular(cfg, im1, im2, with_mag=False):
-#    """
-#    Angular differences between the pixels of both images.
-#    """
-#    gh_im1 = ndimage.sobel(im1, 0)  # horizontal gradient
-#    gv_im1 = ndimage.sobel(im1, 1)  # vertical gradient
-#    grad_im1 = np.stack((gh_im1, gv_im1), axis=-1)
-#
-#    gh_im2 = ndimage.sobel(im2, 0)  # horizontal gradient
-#    gv_im2 = ndimage.sobel(im2, 1)  # vertical gradient
-#    grad_im2 = np.stack((gh_im2, gv_im2), axis=-1)
-#    magnitude = None
-#    if with_mag:
-#        magnitude = norm(grad_im1, axis=2) + norm(grad_im2, axis=2)
-#
-#    if cfg.feature == "magnitude":
-#        magnitude = np.sqrt(gh_im1**2 + gv_im1**2)
-#        iio.write(os.path.join(cfg.dirout, "magnitude.tif"), magnitude)
-#        return magnitude
-#    print(gh_im1.shape, grad_im1.shape)
-#
-##    w = np.tensordot(grad_im1, grad_im2, axes=(2))
-##    print(w.shape)
-##    exit()
-#
-#    prodsca = (
-#        grad_im1[:,:,0] * grad_im2[:,:,0] + grad_im1[:,:,1] * grad_im2[:,:,1]
-#    )
-#    cosine = np.arccos(
-#        prodsca / (norm(grad_im1, axis=2)*norm(grad_im2, axis=2))
-#    )
-##    cosine = prodsca
-#    cosine[np.isnan(cosine)] = 0.0
-#    print(cosine.shape)
-#    return cosine, magnitude
-#
-#@njit
-#@jit(nopython=False)
-def compute_phi(im1, im2):
+def compute_theta(im1, im2):
     """
-    ...
-    """
-    return np.abs(im1 - im2)
-
-def compute_omega(im1, im2):
-    """
-    Module
-    """
-    """
-    Angular differences between the pixels of both images.
+    Module gradient differences between the pixels of both images.
     """
     img = im1 - im2
     gh_img = ndimage.sobel(img, 0)  # horizontal gradient
@@ -348,83 +271,8 @@ def compute_omega(im1, im2):
     module = norm(grad_img, axis=2)
     return module
 
-def compute_khi(im1, im2):
-    """
-    ...
-    """
-    """
-    Angular differences between the pixels of both images.
-    """
-    gh_im1 = ndimage.sobel(im1, 0)  # horizontal gradient
-    gv_im1 = ndimage.sobel(im1, 1)  # vertical gradient
-    grad_im1 = np.stack((gh_im1, gv_im1), axis=-1)
-
-    gh_im2 = ndimage.sobel(im2, 0)  # horizontal gradient
-    gv_im2 = ndimage.sobel(im2, 1)  # vertical gradient
-    grad_im2 = np.stack((gh_im2, gv_im2), axis=-1)
-
-    prodsca = (
-        grad_im1[:,:,0] * grad_im2[:,:,0] + grad_im1[:,:,1] * grad_im2[:,:,1]
-    )
-    cosine = np.arccos(
-        prodsca / (norm(grad_im1, axis=2)*norm(grad_im2, axis=2))
-    )
-    cosine[np.isnan(cosine)] = 0.0
-    return cosine
-
-
 @njit
-def compute_theta(imu, imv, half_l):
-    """
-    Parameters
-    ----------
-    imu : np.array ndim=(nrow, ncol)
-        Reference image.
-    imv : np.array ndim=(nrow, ncol)
-        Compared image.
-    half_l : int
-        Half side of the square patch.
-    """
-
-    nrow, ncol = imu.shape
-
-    # initialization
-    phi_uvl = np.nan * np.ones((nrow, ncol))
-
-    # computation per pixel
-    for x_i in np.arange(nrow):
-        for x_j in np.arange(ncol):
-            # limits tests
-            if (x_i - half_l < 0 or nrow <= x_i + half_l
-                or x_j - half_l < 0 or ncol <= x_j + half_l):
-                continue
-
-            # neighborhood of x
-            tilu = imu[x_i-half_l:x_i+half_l+1, x_j-half_l:x_j+half_l+1]
-            y_i = x_i
-            y_j = x_j
-
-            # limits tests
-            if (y_i - half_l < 0 or nrow <= y_i + half_l
-                or y_j - half_l < 0 or ncol <= y_j + half_l):
-                continue
-
-            # neighborhood of y
-            tilv = imv[y_i-half_l:y_i+half_l+1, y_j-half_l:y_j+half_l+1]
-
-            # calcul de la distance
-            suu = np.sum(tilu*tilu)
-            svv = np.sum(tilv*tilv)
-            phi_uvl[x_i, x_j] = (
-                max(suu, svv) * (1 - np.sum(tilu * tilv)**2 / (suu * svv))
-            )
-
-    phi_uvl = handle_boundaries(phi_uvl)
-    return phi_uvl
-
-
-@njit
-def compute_map(angle0, angle1, b):
+def compute_pvalues(angle0, angle1, side):
     """
     Parameters
     ----------
@@ -432,11 +280,11 @@ def compute_map(angle0, angle1, b):
         The image to test.
     theta1 :
         The image of reference.
-    b : int
+    side : int
         Side of the square neighborhood of x.
     """
     nrow, ncol = angle0.shape
-    h_b = b // 2
+    h_b = side // 2
 
     # initialization
     pval = np.nan * np.ones((nrow, ncol))
@@ -458,57 +306,14 @@ def compute_map(angle0, angle1, b):
     return pval
 
 
-#@njit
-# comdef compute_map2(angle0, angle1, b, epsilon):
-# com    """
-# com    Parameters
-# com    ----------
-# com    theta0 :
-# com        The image to test.
-# com    theta1 :
-# com        The image of reference.
-# com    b : int
-# com        Side of the square neighborhood of x.
-# com    """
-# com    nrow, ncol = angle0.shape
-# com    h_b = b // 2
-# com
-# com    # initialization
-# com    pval = np.nan * np.ones((nrow, ncol))
-# com    # computation per pixel
-# com    for x_i in np.arange(nrow):
-# com#        print(x_i)
-# com        for x_j in np.arange(ncol):
-# com            # limits tests
-# com            if (x_i-h_b < 0 or nrow <= x_i+h_b
-# com                or x_j-h_b < 0 or ncol <= x_j+h_b):
-# com                continue
-# com            # neighborhood of x
-# com            tile0 = angle0[x_i-h_b:x_i+h_b+1, x_j-h_b:x_j+h_b+1].flatten()
-# com            tile1 = angle1[x_i-h_b:x_i+h_b+1, x_j-h_b:x_j+h_b+1].flatten()
-# com
-# com#            _, pvalue = stats.ks_2samp(tile1, tile0)
-# com            _, _, pvalue = kolmogorov_smirnov(tile1, tile0)
-# com
-# com            pval[x_i, x_j] = pvalue
-# com    pval = handle_boundaries(pval)
-# com    nfa = nrow * ncol * pval
-# com    mappe_v = 1 * nfa < epsilon
-# com#    mappe_v = np.uint8(mappe_v)
-# com    return mappe_v
-# com#    return pval, angle0, angle1
-
-
-def traiter(cfg):
+def load_images(cfg):
     """
     ...
     """
     with zipfile.ZipFile(cfg.zip, 'r') as monzip:
-        fichiers = sorted([basename(f) for f in monzip.namelist()])
         pfxrep = [dirname(f) for f in monzip.namelist()][0]
         print("prefixe", pfxrep)
         monzip.extractall(path=cfg.dirout)
-#        print(sorted(os.listdir(join(cfg.dirout, pfxrep))))
     files = sorted(os.listdir(join(cfg.dirout, pfxrep)))
     files = [join(cfg.dirout, fic) for fic in files]
 
@@ -517,84 +322,57 @@ def traiter(cfg):
     files_v_n = files[1::2]
     print(files_u_n)
     print(files_v_n)
-#    imu_n = []
-#    for u_n in files_u_n:
-#        print(f"image={u_n}")
-#        a = iio.read(u_n)
-#        imu_n += [convert_to_gray_image(cfg, a)]
-    imu_n = [saturate_image(convert_to_gray_image(cfg, iio.read(u_n))) for u_n in files_u_n]
-    imv_n = [saturate_image(convert_to_gray_image(cfg, iio.read(v_n))) for v_n in files_v_n]
-    imu_0, imu_1 = imu_n[-1], imu_n[-2]
-    imv_0, imv_1 = imv_n[-1], imv_n[-2]
+    im_n = [normalize_image(iio.read(u_n), sat=0.01) for u_n in files]
+    for i, u_n in enumerate(im_n):
+        iio.write(f"input_{i}.png", u_n)
+    
+    imu_n = [saturate_image(convert_to_gray_image(cfg, iio.read(u_n)))
+        for u_n in files_u_n]
+    imv_n = [saturate_image(convert_to_gray_image(cfg, iio.read(v_n)))
+        for v_n in files_v_n]
+
+    return files_u_n, files_v_n, imu_n, imv_n
+
+
+def traiter(cfg):
+    """
+    ...
+    """
+
+    files_u_n, files_v_n, imu_n, imv_n = load_images(cfg)
+    imu_0 = imu_n[-1]
+    imv_0 = imv_n[-1]
     imu_n = imu_n[:-1]
     imv_n = imv_n[:-1]
-#com    theta_u1_u0 = compute_theta(imu_0, imu_1)
-#com    theta_v1_v0 = compute_theta(imv_0, imv_1)
-    # strategy 1
 
-    # strategy 2
     print(f"{len(imu_n)} {len(imv_n)}")
     assert len(imu_n) == len(imv_n)
-    nb = 0
-    nlig, ncol = imu_1.shape
-#com    avg_map = np.zeros((nlig, ncol))#, dtype=np.float64)
-#com    for i in range(len(imu_n) - 1):
-#com        for j in range(i+1, len(imu_n)):
-#com            nb += 1
-#com            print(f"paire u {files_u_n[i]} {files_u_n[j]}")
-#com            theta_ui_uj = compute_theta(imu_n[i], imu_n[j])
-#com            print(f"paire v {files_v_n[i]} {files_v_n[j]}")
-#com            theta_vi_vj = compute_theta(imv_n[i], imv_n[j])
-#com            # compute Boolean map
-#com            map_u = compute_map(theta_u1_u0, theta_ui_uj, cfg.b, cfg.epsilon)
-#com            map_v = compute_map(theta_v1_v0, theta_vi_vj, cfg.b, cfg.epsilon)
-#com            # difference
-#com            map_d = map_v - map_u * map_v
-#com            avg_map += map_d
-#com    avg_map /= nb
-#com    iio.write(join(cfg.dirout, "avg_map_strat2.tif"), 255 * avg_map)
-#com
-#com    # strategy 4
-#com    nb = 0
-#com    avg_map = np.zeros((nlig, ncol))#, dtype=np.float)
-#com    theta_u0_v0 = compute_theta(imu_0, imv_0)
-#com    for i in range(len(imu_n)):
-#com        for j in range(i, len(imu_n)):
-#com            print(f"paire u, v {files_u_n[i]} {files_v_n[j]}")
-#com            nb += 1
-#com            theta_ui_vj = compute_theta(imu_n[i], imv_n[j])
-#com            # compute Boolean map
-#com            mappe = compute_map(theta_u0_v0, theta_ui_vj, cfg.b, cfg.epsilon)
-#com            avg_map += mappe
-#com    avg_map /= nb
-#com    iio.write(join(cfg.dirout, "avg_map_strat4.tif"), 255 * avg_map)
-#com
-    # strategy 5
-    nb = 0
-    avg_map = np.zeros((nlig, ncol))#, dtype=np.float)
-# com    scale = 3
-    #theta_u0_v0 = compute_theta(imu_0, imv_0, scale)
-    theta_u0_v0 = compute_omega(imu_0, imv_0)
+    nlig, ncol = imu_0.shape
+
+    # strategy 6
+    nsample = 0
+    theta_u0_v0 = compute_theta(imu_0, imv_0)
 
     mappes = []
-    for i in range(len(imu_n)):
-        for j in range(len(imu_n)):
+    for i, imu_i in enumerate(imu_n):
+        for j, imv_j in enumerate(imv_n):
             print(f"paire u, v {files_u_n[i]} {files_v_n[j]}")
-            nb += 1
-#            theta_ui_vj = compute_theta(imu_n[i], imv_n[j], scale)
-            theta_ui_vj = compute_omega(imu_n[i], imv_n[j])
+            nsample += 1
+            theta_ui_vj = compute_theta(imu_i, imv_j)
             # compute Boolean map
-#            mappe = compute_map(theta_u0_v0, theta_ui_vj, cfg.b, cfg.epsilon)
-            mappe = compute_map(theta_u0_v0, theta_ui_vj, cfg.b)
+            mappe = compute_pvalues(theta_u0_v0, theta_ui_vj, cfg.b)
             mappes += [mappe]
 
     # computation of the NFA according to the median p-value
     median = np.stack(mappes, axis=2)
     median = np.median(median, axis=2)
-    nfa = nlig * ncol * nb * median
-    iio.write(join(cfg.dirout, "median_strat5.tif"), nfa)
+    nfa = nsample * nlig * ncol * median
+    iio.write(join(cfg.dirout, "median_strat6.tif"), nfa)
 
-    return
+    img = convert_to_rainbow_image(median)
+    iio.write(join(cfg.dirout, "median_strat6.png"), img)
+    return 0
+
 
 def main():
     """
@@ -614,4 +392,4 @@ def main():
 
 if __name__ == "__main__":
     execution_time = timeit.timeit(main, number=1)
-    print(f"Execution time: {execution_time:.6f} seconds")
+    print(f"Execution time: {execution_time:6.3f} seconds")
