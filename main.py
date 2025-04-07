@@ -59,11 +59,9 @@ def convert_to_gray_image(cfg, img):
     channels, we assume it is a Sentinel-2 image with the B04, B03, B02, B08
     channels storage in this order.
     """
-    if cfg.channel is None:
-        img = img[:, :, 0:3]
-        img = np.mean(img, axis=-1)
-    else:
-        img = img[:, :, cfg.channel]
+    img = img[:, :, 0:3]
+    img = np.mean(img, axis=-1)
+
     return img
 
 
@@ -153,13 +151,6 @@ def load_parameters():
     )
     f_parser.add_argument(
         "--dirout", type=str, required=True, help="Output directory."
-    )
-    f_parser.add_argument(
-        "--channel", type=int, required=False, help="Channel."
-    )
-    f_parser.add_argument(
-        "--feature", type=str, required=False, choices=["angle", "magnitude"],
-        default="angle", help="..."
     )
 
     cfg = parser.parse_args()
@@ -324,7 +315,7 @@ def load_images(cfg):
     print(files_v_n)
     im_n = [normalize_image(iio.read(u_n), sat=0.01) for u_n in files]
     for i, u_n in enumerate(im_n):
-        iio.write(f"input_{i}.png", u_n)
+        iio.write(join(cfg.dirout, f"input_{i}.png"), u_n)
     
     imu_n = [saturate_image(convert_to_gray_image(cfg, iio.read(u_n)))
         for u_n in files_u_n]
@@ -356,7 +347,7 @@ def traiter(cfg):
     mappes = []
     for i, imu_i in enumerate(imu_n):
         for j, imv_j in enumerate(imv_n):
-            print(f"paire u, v {files_u_n[i]} {files_v_n[j]}")
+            print(f"paire u{i} v{j} = {files_u_n[i]} {files_v_n[j]}")
             nsample += 1
             theta_ui_vj = compute_theta(imu_i, imv_j)
             # compute Boolean map
