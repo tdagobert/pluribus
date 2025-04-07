@@ -313,7 +313,10 @@ def load_images(cfg):
     files_v_n = files[1::2]
     print(files_u_n)
     print(files_v_n)
-    im_n = [normalize_image(iio.read(u_n), sat=0.01) for u_n in files]
+    im_n = []
+    for u_n in files:
+        print(f"u_n")
+        im_n += [normalize_image(iio.read(u_n), sat=0.01)]
     for i, u_n in enumerate(im_n):
         iio.write(join(cfg.dirout, f"input_{i}.png"), u_n)
     
