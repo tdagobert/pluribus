@@ -51,8 +51,8 @@ from matplotlib import cm
 import matplotlib.pyplot as plt
 
 from numba import njit
-import imageio as iio
-#import iio
+#import imageio as iio
+import iio
 def convert_to_gray_image(cfg, img):
     """
     Convert an RGB image into a gray level one. If the image contains 4
@@ -306,7 +306,7 @@ def load_images(cfg):
         print("prefixe", pfxrep)
         monzip.extractall(path=cfg.dirout)
     files = sorted(os.listdir(join(cfg.dirout, pfxrep)))
-    files = [join(cfg.dirout, fic) for fic in files]
+#    files = [join(cfg.dirout, fic) for fic in files]
 
     # (u_n)
     files_u_n = files[0::2]
@@ -316,14 +316,16 @@ def load_images(cfg):
     im_n = []
     for u_n in files:
         print(f"{u_n}")
-        im_n += [normalize_image(iio.imread(u_n), sat=0.01)]
+        im_n += [normalize_image(iio.read(join(cfg.dirout,u_n)), sat=0.01)]
     for i, u_n in enumerate(im_n):
-        iio.imwrite(join(cfg.dirout, f"input_{i}.png"), u_n)
+        iio.write(join(cfg.dirout, f"input_{i}.png"), u_n)
     
-    imu_n = [saturate_image(convert_to_gray_image(cfg, iio.imread(u_n)))
-        for u_n in files_u_n]
-    imv_n = [saturate_image(convert_to_gray_image(cfg, iio.imread(v_n)))
-        for v_n in files_v_n]
+    imu_n = [saturate_image(
+        convert_to_gray_image(cfg, iio.read(join(cfg.dirout,u_n)))
+    ) for u_n in files_u_n]
+    imv_n = [saturate_image(
+        convert_to_gray_image(cfg, iio.read(join(cfg.dirout,v_n)))
+    ) for v_n in files_v_n]
 
     return files_u_n, files_v_n, imu_n, imv_n
 
@@ -361,10 +363,13 @@ def traiter(cfg):
     median = np.stack(mappes, axis=2)
     median = np.median(median, axis=2)
     nfa = nsample * nlig * ncol * median
-    iio.imwrite(join(cfg.dirout, "median_strat6.tif"), nfa)
+    iio.write(join(cfg.dirout, "median_strat6.tif"), nfa)
 
     img = convert_to_rainbow_image(median)
-    iio.imwrite(join(cfg.dirout, "median_strat6.png"), img)
+    iio.write(join(cfg.dirout, "median_strat6.png"), img)
+
+    nfa = 255 * (nfa < cfg.epsilon)
+    iio.write(join(cfg.dirout, "nfa_strat6.png"), nfa)
     return 0
 
 
