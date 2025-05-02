@@ -310,10 +310,9 @@ def load_images(cfg):
     iio.write(join(cfg.dirout, f"v_0.png"),
               normalize_image(iio.read(join(cfg.dirout, files[-1])), sat=0.01))
 
-    if cfg.transform == "no":
-        imu_n = [iio.read(join(cfg.dirout, u_n)) for u_n in files_u_n]
-        imv_n = [iio.read(join(cfg.dirout, v_n)) for v_n in files_v_n]
-    elif cfg.transform == "sqrt":
+    imu_n = [iio.read(join(cfg.dirout, u_n)) for u_n in files_u_n]
+    imv_n = [iio.read(join(cfg.dirout, v_n)) for v_n in files_v_n]
+    if cfg.transform == "sqrt":
         imu_n = [np.array(np.sqrt(u_n), dtype=int) for u_n in imu_n]
         imv_n = [np.array(np.sqrt(v_n), dtype=int) for v_n in imv_n]
         print("Application de SQRT")
