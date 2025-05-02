@@ -499,7 +499,7 @@ def load_parameters():
         "--dirout", type=str, required=True, help="Output directory."
     )
     f_parser.add_argument(
-        "--transform", type=str, required=True, values=["no", "sqrt"],
+        "--transform", type=str, required=True, choices=["no", "sqrt"],
         default="no", help="Output directory."
     )
     
